@@ -70,13 +70,27 @@ service cloud.firestore {
 
     // Workspace invites collection
     match /workspace-invites/{inviteId} {
-      // Users can read invites sent to their email
+      // Users can read invites if:
+      // - Sent to their email
+      // - They created the invite
+      // - They own or are members of the workspace (for duplicate checking)
       allow read: if isSignedIn() && (
         request.auth.token.email.lower() == resource.data.email ||
-        request.auth.uid == resource.data.invitedBy
+        request.auth.uid == resource.data.invitedBy ||
+        exists(/databases/$(database)/documents/workspaces/$(resource.data.workspaceId)) &&
+        (
+          get(/databases/$(database)/documents/workspaces/$(resource.data.workspaceId)).data.ownerId == request.auth.uid ||
+          request.auth.uid in get(/databases/$(database)/documents/workspaces/$(resource.data.workspaceId)).data.members
+        )
       );
-      // Authenticated users can create invites
-      allow create: if isSignedIn() && request.auth.uid == request.resource.data.invitedBy;
+      // Authenticated users can create invites if they're workspace owner or member
+      allow create: if isSignedIn() &&
+        request.auth.uid == request.resource.data.invitedBy &&
+        exists(/databases/$(database)/documents/workspaces/$(request.resource.data.workspaceId)) &&
+        (
+          get(/databases/$(database)/documents/workspaces/$(request.resource.data.workspaceId)).data.ownerId == request.auth.uid ||
+          request.auth.uid in get(/databases/$(database)/documents/workspaces/$(request.resource.data.workspaceId)).data.members
+        );
       // Users can update invites sent to their email (for accepting/declining)
       allow update: if isSignedIn() && (
         request.auth.token.email.lower() == resource.data.email ||
