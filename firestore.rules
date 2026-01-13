@@ -23,7 +23,10 @@ service cloud.firestore {
 
     // Workspaces collection
     match /workspaces/{workspaceId} {
-      // Users can read workspaces they're members of or own
+      // Users can read workspaces if they:
+      // - Own the workspace
+      // - Are members of the workspace
+      // Note: Reading workspace when accepting invite is allowed via the get() in the invite update rule
       allow read: if isSignedIn() && (
         request.auth.uid == resource.data.ownerId ||
         request.auth.uid in resource.data.members
@@ -34,11 +37,13 @@ service cloud.firestore {
       // Users accepting invites can add themselves to members array
       allow update: if isSignedIn() && (
         request.auth.uid == resource.data.ownerId ||
+        request.auth.uid == request.resource.data.ownerId ||
         (
-          // Allow if only members field is being updated AND user is adding themselves
+          // Allow if only members field is being updated
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members']) &&
+          // AND user is in the new members list but not in the old one (they're adding themselves)
           request.auth.uid in request.resource.data.members &&
-          !(request.auth.uid in resource.data.members)
+          !(request.auth.uid in resource.data.get('members', []))
         )
       );
       allow delete: if isSignedIn() && request.auth.uid == resource.data.ownerId;
@@ -51,7 +56,24 @@ service cloud.firestore {
       // Any authenticated user can create channels
       allow create: if isSignedIn();
       // Channel creators or workspace owners can update/delete channels
-      allow update, delete: if isSignedIn() && (
+      // Users can add themselves to non-private channels
+      allow update: if isSignedIn() && (
+        request.auth.uid == resource.data.createdBy ||
+        (
+          exists(/databases/$(database)/documents/workspaces/$(resource.data.workspaceId)) &&
+          get(/databases/$(database)/documents/workspaces/$(resource.data.workspaceId)).data.ownerId == request.auth.uid
+        ) ||
+        (
+          // Allow if only members field is being updated
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members']) &&
+          // AND channel is not private
+          !resource.data.isPrivate &&
+          // AND user is in the new members list but not in the old one (they're adding themselves)
+          request.auth.uid in request.resource.data.members &&
+          !(request.auth.uid in resource.data.get('members', []))
+        )
+      );
+      allow delete: if isSignedIn() && (
         request.auth.uid == resource.data.createdBy ||
         exists(/databases/$(database)/documents/workspaces/$(resource.data.workspaceId)) &&
         get(/databases/$(database)/documents/workspaces/$(resource.data.workspaceId)).data.ownerId == request.auth.uid

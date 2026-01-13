@@ -31,13 +31,13 @@ export const convertFirebaseUser = async (firebaseUser: FirebaseUser): Promise<U
 };
 
 // Create user document in Firestore
-const createUserDocument = async (firebaseUser: FirebaseUser) => {
+const createUserDocument = async (firebaseUser: FirebaseUser, displayName?: string) => {
   const userRef = doc(db, 'users', firebaseUser.uid);
   const userSnap = await getDoc(userRef);
 
   if (!userSnap.exists()) {
     await setDoc(userRef, {
-      name: firebaseUser.displayName || 'Anonymous',
+      name: displayName || firebaseUser.displayName || 'Anonymous',
       email: firebaseUser.email,
       avatar: firebaseUser.photoURL || null,
       status: 'online',
@@ -45,6 +45,12 @@ const createUserDocument = async (firebaseUser: FirebaseUser) => {
       createdAt: serverTimestamp(),
       lastSeen: serverTimestamp(),
     });
+  } else {
+    // Update name if it's missing and we have a displayName
+    const userData = userSnap.data();
+    if (!userData.name && displayName) {
+      await setDoc(userRef, { name: displayName }, { merge: true });
+    }
   }
 };
 
@@ -59,8 +65,8 @@ export const signUpWithEmail = async (
   // Update profile with display name
   await updateProfile(userCredential.user, { displayName });
 
-  // Create user document in Firestore
-  await createUserDocument(userCredential.user);
+  // Create user document in Firestore with the displayName
+  await createUserDocument(userCredential.user, displayName);
 
   return convertFirebaseUser(userCredential.user);
 };
@@ -68,6 +74,10 @@ export const signUpWithEmail = async (
 // Sign in with email and password
 export const signInWithEmail = async (email: string, password: string): Promise<User> => {
   const userCredential = await signInWithEmailAndPassword(auth, email, password);
+
+  // Ensure user document exists and has displayName
+  await createUserDocument(userCredential.user, userCredential.user.displayName || undefined);
+
   return convertFirebaseUser(userCredential.user);
 };
 

@@ -12,6 +12,7 @@ import {
   onSnapshot,
   serverTimestamp,
   Timestamp,
+  arrayUnion,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import type { Message, Channel, Workspace, Reaction, WorkspaceInvite } from '../types/index';
@@ -104,12 +105,31 @@ export const subscribeToWorkspaces = (
   userId: string,
   callback: (workspaces: Workspace[]) => void
 ) => {
-  // For now, just use owner query for simplicity and performance
-  // This ensures immediate loading and backwards compatibility
+  // We need to subscribe to both queries:
+  // 1. Workspaces where user is in members array (new workspaces + invited workspaces)
+  // 2. Workspaces where user is owner (for backwards compatibility with old workspaces)
+
+  const memberQuery = query(collection(db, 'workspaces'), where('members', 'array-contains', userId));
   const ownerQuery = query(collection(db, 'workspaces'), where('ownerId', '==', userId));
 
-  return onSnapshot(ownerQuery, (snapshot) => {
-    const workspaces = snapshot.docs.map((doc) => ({
+  let memberWorkspaces: Workspace[] = [];
+  let ownerWorkspaces: Workspace[] = [];
+
+  const mergeAndCallback = () => {
+    // Merge results and deduplicate by ID
+    const workspaceMap = new Map<string, Workspace>();
+
+    [...memberWorkspaces, ...ownerWorkspaces].forEach((workspace) => {
+      if (!workspaceMap.has(workspace.id)) {
+        workspaceMap.set(workspace.id, workspace);
+      }
+    });
+
+    callback(Array.from(workspaceMap.values()));
+  };
+
+  const unsubscribeMember = onSnapshot(memberQuery, (snapshot) => {
+    memberWorkspaces = snapshot.docs.map((doc) => ({
       id: doc.id,
       name: doc.data().name,
       ownerId: doc.data().ownerId,
@@ -117,8 +137,26 @@ export const subscribeToWorkspaces = (
       icon: doc.data().icon,
       createdAt: (doc.data().createdAt as Timestamp)?.toDate() || new Date(),
     }));
-    callback(workspaces);
+    mergeAndCallback();
   });
+
+  const unsubscribeOwner = onSnapshot(ownerQuery, (snapshot) => {
+    ownerWorkspaces = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      name: doc.data().name,
+      ownerId: doc.data().ownerId,
+      members: doc.data().members || [doc.data().ownerId],
+      icon: doc.data().icon,
+      createdAt: (doc.data().createdAt as Timestamp)?.toDate() || new Date(),
+    }));
+    mergeAndCallback();
+  });
+
+  // Return a function that unsubscribes from both
+  return () => {
+    unsubscribeMember();
+    unsubscribeOwner();
+  };
 };
 
 // ============================================
@@ -183,16 +221,9 @@ export const subscribeToChannels = (
 
 export const addChannelMember = async (channelId: string, userId: string): Promise<void> => {
   const channelRef = doc(db, 'channels', channelId);
-  const channelSnap = await getDoc(channelRef);
-
-  if (channelSnap.exists()) {
-    const members = channelSnap.data().members || [];
-    if (!members.includes(userId)) {
-      await updateDoc(channelRef, {
-        members: [...members, userId],
-      });
-    }
-  }
+  await updateDoc(channelRef, {
+    members: arrayUnion(userId),
+  });
 };
 
 export const deleteChannel = async (channelId: string): Promise<void> => {
@@ -445,23 +476,51 @@ export const acceptWorkspaceInvite = async (inviteId: string, userId: string, wo
     status: 'accepted',
   });
 
-  // Add user to workspace members
+  // Add user to workspace members using arrayUnion (atomic operation)
+  // arrayUnion automatically prevents duplicates
   const workspaceRef = doc(db, 'workspaces', workspaceId);
-  const workspaceSnap = await getDoc(workspaceRef);
+  await updateDoc(workspaceRef, {
+    members: arrayUnion(userId),
+  });
 
-  if (workspaceSnap.exists()) {
-    const members = workspaceSnap.data().members || [];
-    if (!members.includes(userId)) {
-      await updateDoc(workspaceRef, {
-        members: [...members, userId],
-      });
-    }
-  }
+  // Add user to all public channels in the workspace
+  const channelsQuery = query(
+    collection(db, 'channels'),
+    where('workspaceId', '==', workspaceId),
+    where('isPrivate', '==', false)
+  );
+  const channelsSnapshot = await getDocs(channelsQuery);
+
+  // Update all public channels to include the new user
+  const channelUpdates = channelsSnapshot.docs.map((channelDoc) =>
+    updateDoc(channelDoc.ref, {
+      members: arrayUnion(userId),
+    })
+  );
+
+  await Promise.all(channelUpdates);
 };
 
 export const declineWorkspaceInvite = async (inviteId: string) => {
   // Update invite status
   await updateDoc(doc(db, 'workspace-invites', inviteId), {
     status: 'declined',
+  });
+};
+
+export const addWorkspaceMember = async (workspaceId: string, userId: string): Promise<void> => {
+  const workspaceRef = doc(db, 'workspaces', workspaceId);
+  await updateDoc(workspaceRef, {
+    members: arrayUnion(userId),
+  });
+};
+
+// Helper function to fix workspace membership for current owner
+// Use this when workspace has wrong owner ID
+export const fixWorkspaceOwnership = async (workspaceId: string, newOwnerId: string): Promise<void> => {
+  const workspaceRef = doc(db, 'workspaces', workspaceId);
+  await updateDoc(workspaceRef, {
+    ownerId: newOwnerId,
+    members: arrayUnion(newOwnerId),
   });
 };
