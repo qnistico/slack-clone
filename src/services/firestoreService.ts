@@ -380,6 +380,19 @@ export const createWorkspaceInvite = async (
   email: string,
   invitedBy: string
 ): Promise<string> => {
+  // Check if there's already a pending invite for this email and workspace
+  const existingInviteQuery = query(
+    collection(db, 'workspace-invites'),
+    where('workspaceId', '==', workspaceId),
+    where('email', '==', email.toLowerCase()),
+    where('status', '==', 'pending')
+  );
+  const existingInvites = await getDocs(existingInviteQuery);
+
+  if (!existingInvites.empty) {
+    throw new Error('An invite is already pending for this email address');
+  }
+
   const inviteRef = await addDoc(collection(db, 'workspace-invites'), {
     workspaceId,
     email: email.toLowerCase(),
