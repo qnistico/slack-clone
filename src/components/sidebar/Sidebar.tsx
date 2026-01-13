@@ -1,19 +1,41 @@
+import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Hash, Lock, Plus, ChevronDown, MessageSquare } from 'lucide-react';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { useChannelStore } from '../../store/channelStore';
 import { useAuthStore } from '../../store/authStore';
+import CreateChannelModal from '../modals/CreateChannelModal';
 
 export default function Sidebar() {
   const { workspaceId, channelId } = useParams<{ workspaceId: string; channelId?: string }>();
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
   const currentUser = useAuthStore((state) => state.currentUser);
   const workspaces = useWorkspaceStore((state) => state.workspaces);
   const channels = useChannelStore((state) => state.channels);
+  const createNewChannel = useChannelStore((state) => state.createNewChannel);
 
   const currentWorkspace = workspaces.find((w) => w.id === workspaceId);
   const workspaceChannels = channels.filter((c) => c.workspaceId === workspaceId);
   const publicChannels = workspaceChannels.filter((c) => !c.isPrivate);
   const privateChannels = workspaceChannels.filter((c) => c.isPrivate);
+
+  const handleCreateChannel = async (data: { name: string; description: string; isPrivate: boolean }) => {
+    if (!workspaceId || !currentUser) return;
+
+    try {
+      await createNewChannel(
+        workspaceId,
+        data.name,
+        currentUser.id,
+        data.description,
+        data.isPrivate
+      );
+      setIsCreateModalOpen(false);
+    } catch (error) {
+      console.error('Failed to create channel:', error);
+    }
+  };
 
   return (
     <div className="w-64 bg-purple-900 text-white flex flex-col h-screen">
@@ -37,25 +59,33 @@ export default function Sidebar() {
               <ChevronDown size={14} />
               Channels
             </h3>
-            <button className="hover:bg-purple-800 rounded p-1 transition">
+            <button
+              onClick={() => setIsCreateModalOpen(true)}
+              className="hover:bg-purple-800 rounded p-1 transition"
+              title="Create channel"
+            >
               <Plus size={16} />
             </button>
           </div>
           <div className="space-y-1">
-            {publicChannels.map((channel) => (
-              <Link
-                key={`${channel.workspaceId}-${channel.id}`}
-                to={`/workspace/${workspaceId}/channel/${channel.id}`}
-                className={`flex items-center gap-2 px-2 py-1 rounded transition ${
-                  channelId === channel.id
-                    ? 'bg-purple-700 text-white font-semibold'
-                    : 'hover:bg-purple-800 text-purple-100'
-                }`}
-              >
-                <Hash size={16} className="flex-shrink-0" />
-                <span className="truncate">{channel.name}</span>
-              </Link>
-            ))}
+            {publicChannels.length === 0 ? (
+              <p className="px-2 text-sm text-purple-300 italic">No channels yet</p>
+            ) : (
+              publicChannels.map((channel) => (
+                <Link
+                  key={`${channel.workspaceId}-${channel.id}`}
+                  to={`/workspace/${workspaceId}/channel/${channel.id}`}
+                  className={`flex items-center gap-2 px-2 py-1 rounded transition ${
+                    channelId === channel.id
+                      ? 'bg-purple-700 text-white font-semibold'
+                      : 'hover:bg-purple-800 text-purple-100'
+                  }`}
+                >
+                  <Hash size={16} className="flex-shrink-0" />
+                  <span className="truncate">{channel.name}</span>
+                </Link>
+              ))
+            )}
           </div>
         </div>
 
@@ -131,6 +161,14 @@ export default function Sidebar() {
           </div>
         </div>
       </div>
+
+      {/* Create Channel Modal */}
+      <CreateChannelModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSubmit={handleCreateChannel}
+        workspaceId={workspaceId || ''}
+      />
     </div>
   );
 }

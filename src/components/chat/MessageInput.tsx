@@ -1,29 +1,75 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Send, Paperclip, AtSign, Bold, Italic, Code } from 'lucide-react';
 import EmojiPicker from './EmojiPicker';
+import { setUserTyping, removeUserTyping } from '../../services/presenceService';
 
 interface MessageInputProps {
+  channelId: string;
   channelName: string;
+  userId: string;
+  userName: string;
   onSendMessage: (content: string) => void;
+  placeholder?: string;
 }
 
 export default function MessageInput({
+  channelId,
   channelName,
+  userId,
+  userName,
   onSendMessage,
+  placeholder,
 }: MessageInputProps) {
   const [message, setMessage] = useState('');
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setMessage(value);
+
+    // Set typing indicator
+    if (value.trim()) {
+      setUserTyping(channelId, userId, userName);
+
+      // Clear existing timeout
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+
+      // Remove typing indicator after 3 seconds of no typing
+      typingTimeoutRef.current = setTimeout(() => {
+        removeUserTyping(channelId, userId);
+      }, 3000);
+    } else {
+      removeUserTyping(channelId, userId);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (message.trim()) {
       onSendMessage(message.trim());
       setMessage('');
+      removeUserTyping(channelId, userId);
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
     }
   };
 
   const handleEmojiSelect = (emoji: string) => {
     setMessage((prev) => prev + emoji);
   };
+
+  // Cleanup typing indicator on unmount
+  useEffect(() => {
+    return () => {
+      removeUserTyping(channelId, userId);
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, [channelId, userId]);
 
   return (
     <div className="border-t border-gray-200 dark:border-gray-700 p-4 bg-white dark:bg-gray-900">
@@ -32,8 +78,8 @@ export default function MessageInput({
           <input
             type="text"
             value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            placeholder={`Message #${channelName}`}
+            onChange={handleInputChange}
+            placeholder={placeholder || `Message #${channelName}`}
             className="w-full px-4 py-3 pr-12 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 dark:focus:ring-purple-800 transition"
           />
           <button

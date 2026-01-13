@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { Users } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Users, Trash2 } from 'lucide-react';
 import { useChannelStore } from '../store/channelStore';
 import { useMessageStore } from '../store/messageStore';
 import { useAuthStore } from '../store/authStore';
@@ -10,49 +10,142 @@ import MessageList from '../components/chat/MessageList';
 import MessageInput from '../components/chat/MessageInput';
 import UserListPanel from '../components/sidebar/UserListPanel';
 import ThemeToggle from '../components/layout/ThemeToggle';
-import { mockUsers } from '../utils/mockData';
+import ThreadPanel from '../components/chat/ThreadPanel';
+import UserProfileModal from '../components/modals/UserProfileModal';
+import TypingIndicator from '../components/chat/TypingIndicator';
+import type { Message, User } from '../types/index';
 
 export default function ChannelPage() {
-  const { channelId } = useParams<{ channelId: string }>();
+  const navigate = useNavigate();
+  const { channelId, workspaceId } = useParams<{ channelId: string; workspaceId: string }>();
   const currentUser = useAuthStore((state) => state.currentUser);
   const channels = useChannelStore((state) => state.channels);
+  const subscribeToWorkspaceChannels = useChannelStore((state) => state.subscribeToWorkspaceChannels);
+  const deleteChannel = useChannelStore((state) => state.deleteChannel);
   const messages = useMessageStore((state) => state.messages);
-  const addMessage = useMessageStore((state) => state.addMessage);
+  const sendNewMessage = useMessageStore((state) => state.sendNewMessage);
   const addReaction = useMessageStore((state) => state.addReaction);
+  const subscribeToChannelMessages = useMessageStore((state) => state.subscribeToChannelMessages);
+  const subscribeToThread = useMessageStore((state) => state.subscribeToThread);
+  const threadReplies = useMessageStore((state) => state.threadReplies);
+
+  // Subscribe to channels in the workspace
+  useEffect(() => {
+    if (workspaceId) {
+      const unsubscribe = subscribeToWorkspaceChannels(workspaceId);
+      return () => unsubscribe();
+    }
+  }, [workspaceId, subscribeToWorkspaceChannels]);
+
+  // Subscribe to messages in the channel
+  useEffect(() => {
+    if (channelId) {
+      const unsubscribe = subscribeToChannelMessages(channelId);
+      return () => unsubscribe();
+    }
+  }, [channelId, subscribeToChannelMessages]);
 
   const [isUserListOpen, setIsUserListOpen] = useState(true);
+  const [isThreadOpen, setIsThreadOpen] = useState(false);
+  const [activeThreadParent, setActiveThreadParent] = useState<Message | null>(null);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
   const currentChannel = channels.find((c) => c.id === channelId);
-  const channelMessages = messages.filter((m) => m.channelId === channelId);
+  const channelMessages = channelId
+    ? messages
+        .filter((m) => m.channelId === channelId && !m.threadId)
+        .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+    : [];
 
-  const handleSendMessage = (content: string) => {
+  useEffect(() => {
+    if (activeThreadParent) {
+      const unsubscribe = subscribeToThread(activeThreadParent.id);
+      return () => unsubscribe();
+    }
+  }, [activeThreadParent, subscribeToThread]);
+
+  const handleSendMessage = async (content: string) => {
     if (!currentUser || !channelId) return;
 
-    addMessage({
-      id: `msg-${Date.now()}`,
-      channelId,
-      userId: currentUser.id,
-      content,
-      createdAt: new Date(),
-      reactions: [],
-    });
+    try {
+      await sendNewMessage(channelId, currentUser.id, content);
+    } catch (error) {
+      console.error('Failed to send message:', error);
+    }
   };
 
-  const handleReactionClick = (messageId: string, emoji: string) => {
+  const handleReactionClick = async (messageId: string, emoji: string) => {
     if (!currentUser) return;
     if (emoji) {
-      addReaction(messageId, emoji, currentUser.id);
+      try {
+        await addReaction(messageId, emoji, currentUser.id);
+      } catch (error) {
+        console.error('Failed to add reaction:', error);
+      }
     }
-    // TODO: Open emoji picker when emoji is empty
   };
 
   const handleThreadClick = (messageId: string) => {
-    console.log('Open thread for message:', messageId);
-    // TODO: Implement thread panel
+    const message = channelMessages.find((m) => m.id === messageId);
+    if (message) {
+      setActiveThreadParent(message);
+      setIsThreadOpen(true);
+    }
   };
 
+  const handleSendThreadReply = async (content: string) => {
+    if (!currentUser || !activeThreadParent || !channelId) return;
+
+    try {
+      await sendNewMessage(channelId, currentUser.id, content, activeThreadParent.id);
+    } catch (error) {
+      console.error('Failed to send thread reply:', error);
+    }
+  };
+
+  const threadMessages = activeThreadParent ? (threadReplies[activeThreadParent.id] || []) : [];
+
+  const handleUserClick = (userId: string) => {
+    // TODO: Fetch user from Firebase and show profile
+    console.log('User clicked:', userId);
+    // setSelectedUser(user);
+    // setIsProfileModalOpen(true);
+  };
+
+  const handleDeleteChannel = async () => {
+    if (!channelId || !currentChannel || !currentUser) return;
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete #${currentChannel.name}? This action cannot be undone.`
+    );
+
+    if (confirmed) {
+      try {
+        await deleteChannel(channelId);
+        navigate(`/workspace/${workspaceId}`);
+      } catch (error) {
+        console.error('Failed to delete channel:', error);
+        alert('Failed to delete channel. Please try again.');
+      }
+    }
+  };
+
+  const isChannelOwner = currentUser && currentChannel && currentChannel.createdBy === currentUser.id;
+
   if (!currentChannel) {
-    return <div>Channel not found</div>;
+    return (
+      <div className="flex h-screen">
+        <MiniNavbar activeItem="home" />
+        <Sidebar />
+        <div className="flex-1 flex items-center justify-center bg-white dark:bg-gray-900">
+          <div className="text-center">
+            <div className="animate-spin w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+            <p className="text-gray-600 dark:text-gray-400">Loading channel...</p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -77,6 +170,15 @@ export default function ChannelPage() {
           </div>
           <div className="flex items-center gap-2">
             <ThemeToggle />
+            {isChannelOwner && (
+              <button
+                onClick={handleDeleteChannel}
+                className="p-2 hover:bg-red-100 dark:hover:bg-red-900/20 rounded transition text-red-600 dark:text-red-400"
+                title="Delete channel"
+              >
+                <Trash2 size={20} />
+              </button>
+            )}
             <button
               onClick={() => setIsUserListOpen(!isUserListOpen)}
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition"
@@ -89,22 +191,56 @@ export default function ChannelPage() {
 
         <MessageList
           messages={channelMessages}
-          users={mockUsers}
+          users={[currentUser!]}
           onReactionClick={handleReactionClick}
           onThreadClick={handleThreadClick}
+          onUserClick={handleUserClick}
         />
-        <MessageInput
-          channelName={currentChannel.name}
-          onSendMessage={handleSendMessage}
-        />
+        {currentUser && channelId && (
+          <>
+            <TypingIndicator channelId={channelId} currentUserId={currentUser.id} />
+            <MessageInput
+              channelId={channelId}
+              channelName={currentChannel.name}
+              userId={currentUser.id}
+              userName={currentUser.name}
+              onSendMessage={handleSendMessage}
+            />
+          </>
+        )}
       </div>
+
+      {/* Thread Panel */}
+      {isThreadOpen && (
+        <ThreadPanel
+          isOpen={isThreadOpen}
+          onClose={() => {
+            setIsThreadOpen(false);
+            setActiveThreadParent(null);
+          }}
+          parentMessage={activeThreadParent}
+          threadMessages={threadMessages}
+          users={[currentUser!]}
+          onSendReply={handleSendThreadReply}
+        />
+      )}
 
       {/* User List Panel */}
       <UserListPanel
         channel={currentChannel}
-        users={mockUsers}
+        users={[currentUser!]}
         isOpen={isUserListOpen}
         onClose={() => setIsUserListOpen(false)}
+      />
+
+      {/* User Profile Modal */}
+      <UserProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => {
+          setIsProfileModalOpen(false);
+          setSelectedUser(null);
+        }}
+        user={selectedUser}
       />
     </div>
   );

@@ -1,10 +1,34 @@
-import { Home, MessageSquare, Bell, FolderOpen, MoreHorizontal, Settings } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Home, MessageSquare, Bell, FolderOpen, MoreHorizontal, LogOut, User } from 'lucide-react';
+import { useAuthStore } from '../../store/authStore';
 
 interface MiniNavbarProps {
   activeItem?: string;
 }
 
 export default function MiniNavbar({ activeItem = 'home' }: MiniNavbarProps) {
+  const navigate = useNavigate();
+  const currentUser = useAuthStore((state) => state.currentUser);
+  const logout = useAuthStore((state) => state.logout);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowProfileMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
   const navItems = [
     { id: 'home', icon: Home, label: 'Home' },
     { id: 'dms', icon: MessageSquare, label: 'DMs' },
@@ -41,14 +65,37 @@ export default function MiniNavbar({ activeItem = 'home' }: MiniNavbarProps) {
       {/* Divider */}
       <div className="w-12 h-px bg-purple-700 my-2" />
 
-      {/* Settings */}
-      <button
-        className="flex flex-col items-center gap-1 py-3 px-2 rounded-lg text-purple-300 hover:bg-purple-800 hover:text-white transition"
-        title="Settings"
-      >
-        <Settings size={20} />
-        <span className="text-[10px] font-medium">Settings</span>
-      </button>
+      {/* User Profile with Dropdown */}
+      <div className="relative" ref={menuRef}>
+        <button
+          onClick={() => setShowProfileMenu(!showProfileMenu)}
+          className="flex flex-col items-center gap-1 py-3 px-2 rounded-lg text-purple-300 hover:bg-purple-800 hover:text-white transition"
+          title={currentUser?.name || 'Profile'}
+        >
+          <User size={20} />
+          <span className="text-[10px] font-medium">Profile</span>
+        </button>
+
+        {/* Dropdown Menu */}
+        {showProfileMenu && (
+          <div className="absolute bottom-full left-20 mb-2 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-2 z-50">
+            {/* User Info */}
+            <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+              <p className="font-semibold text-gray-900 dark:text-white">{currentUser?.name}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{currentUser?.email}</p>
+            </div>
+
+            {/* Sign Out Button */}
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center gap-3 px-4 py-2 text-left text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition"
+            >
+              <LogOut size={18} />
+              <span>Sign out</span>
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

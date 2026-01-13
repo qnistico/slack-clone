@@ -1,35 +1,114 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import type { Channel } from '../types';
+import {
+  subscribeToChannels,
+  createChannel as createFirestoreChannel,
+  addChannelMember,
+  deleteChannel as deleteFirestoreChannel,
+} from '../services/firestoreService';
 
 interface ChannelState {
   channels: Channel[];
   currentChannelId: string | null;
+  isLoading: boolean;
   addChannel: (channel: Channel) => void;
+  setChannels: (channels: Channel[]) => void;
   setCurrentChannel: (channelId: string) => void;
   getChannelsByWorkspace: (workspaceId: string) => Channel[];
   getCurrentChannel: () => Channel | undefined;
+  createNewChannel: (
+    workspaceId: string,
+    name: string,
+    createdBy: string,
+    description?: string,
+    isPrivate?: boolean
+  ) => Promise<string>;
+  joinChannel: (channelId: string, userId: string) => Promise<void>;
+  deleteChannel: (channelId: string) => Promise<void>;
+  subscribeToWorkspaceChannels: (workspaceId: string) => () => void;
 }
 
-export const useChannelStore = create<ChannelState>((set, get) => ({
-  channels: [],
-  currentChannelId: null,
-  addChannel: (channel) =>
-    set((state) => {
-      // Prevent duplicates
-      if (state.channels.some((c) => c.id === channel.id)) {
-        return state;
-      }
-      return {
-        channels: [...state.channels, channel],
-      };
+export const useChannelStore = create<ChannelState>()(
+  persist(
+    (set, get) => ({
+      channels: [],
+      currentChannelId: null,
+      isLoading: false,
+
+      addChannel: (channel) =>
+        set((state) => {
+          // Prevent duplicates
+          if (state.channels.some((c) => c.id === channel.id)) {
+            return state;
+          }
+          return {
+            channels: [...state.channels, channel],
+          };
+        }),
+
+      setChannels: (channels) => set({ channels }),
+
+      setCurrentChannel: (channelId) => set({ currentChannelId: channelId }),
+
+      getChannelsByWorkspace: (workspaceId) => {
+        const state = get();
+        return state.channels.filter((c) => c.workspaceId === workspaceId);
+      },
+
+      getCurrentChannel: () => {
+        const state = get();
+        return state.channels.find((c) => c.id === state.currentChannelId);
+      },
+
+      createNewChannel: async (workspaceId, name, createdBy, description, isPrivate = false) => {
+        set({ isLoading: true });
+        try {
+          const channelId = await createFirestoreChannel(
+            workspaceId,
+            name,
+            createdBy,
+            description,
+            isPrivate
+          );
+          return channelId;
+        } catch (error) {
+          console.error('Failed to create channel:', error);
+          throw error;
+        } finally {
+          set({ isLoading: false });
+        }
+      },
+
+      joinChannel: async (channelId, userId) => {
+        try {
+          await addChannelMember(channelId, userId);
+        } catch (error) {
+          console.error('Failed to join channel:', error);
+          throw error;
+        }
+      },
+
+      deleteChannel: async (channelId) => {
+        try {
+          await deleteFirestoreChannel(channelId);
+        } catch (error) {
+          console.error('Failed to delete channel:', error);
+          throw error;
+        }
+      },
+
+      subscribeToWorkspaceChannels: (workspaceId) => {
+        return subscribeToChannels(workspaceId, (channels) => {
+          set({ channels });
+        });
+      },
     }),
-  setCurrentChannel: (channelId) => set({ currentChannelId: channelId }),
-  getChannelsByWorkspace: (workspaceId) => {
-    const state = get();
-    return state.channels.filter((c) => c.workspaceId === workspaceId);
-  },
-  getCurrentChannel: () => {
-    const state = get();
-    return state.channels.find((c) => c.id === state.currentChannelId);
-  },
-}));
+    {
+      name: 'channel-storage',
+      partialize: (state) => ({
+        currentChannelId: state.currentChannelId,
+      }),
+    }
+  )
+);
