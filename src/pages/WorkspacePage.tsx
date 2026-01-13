@@ -31,16 +31,25 @@ export default function WorkspacePage() {
   }, [workspaceId, setCurrentWorkspace, subscribeToWorkspaceChannels]);
 
   return (
-    <div className="flex h-screen">
-      <MiniNavbar activeItem="home" />
-      <Sidebar />
-      <div className="flex-1 bg-gray-100 dark:bg-gray-900">
-        <div className="h-full flex items-center justify-center">
-          <div className="text-center">
-            <p className="text-2xl text-gray-500 mb-2">👈</p>
-            <p className="text-gray-600 dark:text-gray-400">Select a channel to start messaging</p>
+    <div className="flex h-screen overflow-hidden">
+      {/* Desktop: Mini Navbar + Sidebar + Content */}
+      <div className="hidden lg:flex h-full w-full">
+        <MiniNavbar activeItem="home" />
+        <Sidebar />
+        <div className="flex-1 bg-white dark:bg-gray-900">
+          <div className="h-full flex items-center justify-center">
+            <div className="text-center">
+              <p className="text-2xl text-gray-500 mb-2">👈</p>
+              <p className="text-gray-600 dark:text-gray-400">Select a channel to start messaging</p>
+            </div>
           </div>
         </div>
+      </div>
+
+      {/* Mobile: Show full sidebar as the main screen */}
+      <div className="lg:hidden flex h-full w-full">
+        <MiniNavbar activeItem="home" />
+        <Sidebar />
       </div>
     </div>
   );

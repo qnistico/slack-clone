@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Users, Trash2 } from 'lucide-react';
+import { Users, Trash2, Menu, ArrowLeft } from 'lucide-react';
 import { useChannelStore } from '../store/channelStore';
 import { useMessageStore } from '../store/messageStore';
 import { useAuthStore } from '../store/authStore';
 import { useWorkspaceStore } from '../store/workspaceStore';
 import MiniNavbar from '../components/layout/MiniNavbar';
 import Sidebar from '../components/sidebar/Sidebar';
+import MobileSidebarMenu from '../components/layout/MobileSidebarMenu';
 import MessageList from '../components/chat/MessageList';
 import MessageInput from '../components/chat/MessageInput';
 import UserListPanel from '../components/sidebar/UserListPanel';
@@ -129,11 +130,12 @@ export default function ChannelPage() {
     fetchWorkspaceMembers();
   }, [workspaceId, workspaces]);
 
-  const [isUserListOpen, setIsUserListOpen] = useState(true);
+  const [isUserListOpen, setIsUserListOpen] = useState(true); // Auto-open on desktop
   const [isThreadOpen, setIsThreadOpen] = useState(false);
   const [activeThreadParent, setActiveThreadParent] = useState<Message | null>(null);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   const currentChannel = channels.find((c) => c.id === channelId);
 
@@ -285,9 +287,13 @@ export default function ChannelPage() {
 
   if (!currentChannel) {
     return (
-      <div className="flex h-screen">
-        <MiniNavbar activeItem="home" />
-        <Sidebar />
+      <div className="flex h-screen overflow-hidden">
+        <div className="hidden lg:block">
+          <MiniNavbar activeItem="home" />
+        </div>
+        <div className="hidden lg:block">
+          <Sidebar />
+        </div>
         <div className="flex-1 flex items-center justify-center bg-white dark:bg-gray-900">
           <div className="text-center">
             <div className="animate-spin w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full mx-auto mb-4"></div>
@@ -299,41 +305,79 @@ export default function ChannelPage() {
   }
 
   return (
-    <div className="flex h-screen">
-      <MiniNavbar activeItem="home" />
-      <Sidebar />
-      <div className="flex-1 flex flex-col bg-white dark:bg-gray-900">
+    <div className="flex h-screen overflow-hidden">
+      {/* Desktop: Mini Navbar */}
+      <div className="hidden lg:block">
+        <MiniNavbar activeItem="home" />
+      </div>
+
+      {/* Desktop: Sidebar */}
+      <div className="hidden lg:block">
+        <Sidebar />
+      </div>
+
+      {/* Mobile: Unified sidebar menu with MiniNavbar + Sidebar */}
+      <MobileSidebarMenu
+        isOpen={isMobileSidebarOpen}
+        onClose={() => setIsMobileSidebarOpen(false)}
+        activeItem="home"
+      />
+
+      {/* Main content area */}
+      <div className="flex-1 flex flex-col bg-white dark:bg-gray-900 min-w-0">
         {/* Channel Header */}
-        <div className="border-b border-gray-200 dark:border-gray-700 p-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold flex items-center gap-2 text-gray-900 dark:text-white">
-              {currentChannel.isPrivate ? '🔒' : '#'} {currentChannel.name}
-              <span className="text-sm font-normal text-gray-500 dark:text-gray-400">
-                {currentChannel.members.length} members
-              </span>
-            </h1>
-            {currentChannel.description && (
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                {currentChannel.description}
-              </p>
-            )}
+        <div className="border-b border-gray-200 dark:border-gray-700 p-3 sm:p-4 flex items-center justify-between">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+            {/* Mobile back button */}
+            <button
+              onClick={() => navigate(`/workspace/${workspaceId}`)}
+              className="lg:hidden p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition flex-shrink-0"
+              title="Back to workspace"
+            >
+              <ArrowLeft size={20} className="text-gray-600 dark:text-gray-400" />
+            </button>
+
+            {/* Mobile hamburger menu */}
+            <button
+              onClick={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
+              className="lg:hidden p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition flex-shrink-0"
+              title="Toggle sidebar"
+            >
+              <Menu size={20} className="text-gray-600 dark:text-gray-400" />
+            </button>
+
+            <div className="min-w-0 flex-1">
+              <h1 className="text-base sm:text-xl font-bold flex items-center gap-1 sm:gap-2 text-gray-900 dark:text-white">
+                <span className="truncate">
+                  {currentChannel.isPrivate ? '🔒' : '#'} {currentChannel.name}
+                </span>
+                <span className="text-xs sm:text-sm font-normal text-gray-500 dark:text-gray-400 whitespace-nowrap flex-shrink-0">
+                  {currentChannel.members.length}
+                </span>
+              </h1>
+              {currentChannel.description && (
+                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-0.5 sm:mt-1 truncate">
+                  {currentChannel.description}
+                </p>
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
             {isChannelOwner && (
               <button
                 onClick={handleDeleteChannel}
-                className="p-2 hover:bg-red-100 dark:hover:bg-red-900/20 rounded transition text-red-600 dark:text-red-400"
+                className="p-2 sm:p-2.5 hover:bg-red-100 dark:hover:bg-red-900/20 rounded transition text-red-600 dark:text-red-400"
                 title="Delete channel"
               >
-                <Trash2 size={20} />
+                <Trash2 size={18} className="sm:w-5 sm:h-5" />
               </button>
             )}
             <button
               onClick={() => setIsUserListOpen(!isUserListOpen)}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition"
+              className="p-2 sm:p-2.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition"
               title="Toggle member list"
             >
-              <Users size={20} className="text-gray-600 dark:text-gray-400" />
+              <Users size={18} className="sm:w-5 sm:h-5 text-gray-600 dark:text-gray-400" />
             </button>
           </div>
         </div>
@@ -362,7 +406,7 @@ export default function ChannelPage() {
         )}
       </div>
 
-      {/* Thread Panel */}
+      {/* Thread Panel - Full screen on mobile, sidebar on desktop */}
       {isThreadOpen && (
         <ThreadPanel
           isOpen={isThreadOpen}
@@ -377,7 +421,7 @@ export default function ChannelPage() {
         />
       )}
 
-      {/* User List Panel */}
+      {/* User List Panel - Full screen on mobile, sidebar on desktop */}
       <UserListPanel
         channel={currentChannel}
         users={workspaceMembers}

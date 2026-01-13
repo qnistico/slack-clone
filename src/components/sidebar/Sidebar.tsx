@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Hash, Lock, Plus, ChevronDown, MessageSquare, UserPlus } from 'lucide-react';
 import { useWorkspaceStore } from '../../store/workspaceStore';
@@ -6,13 +6,15 @@ import { useChannelStore } from '../../store/channelStore';
 import { useAuthStore } from '../../store/authStore';
 import CreateChannelModal from '../modals/CreateChannelModal';
 import InviteModal from '../modals/InviteModal';
-import { createWorkspaceInvite, getUserByEmail } from '../../services/firestoreService';
+import { createWorkspaceInvite, getUserByEmail, getUserById } from '../../services/firestoreService';
 import { getUserAvatar } from '../../utils/avatar';
+import type { User } from '../../types';
 
 export default function Sidebar() {
   const { workspaceId, channelId } = useParams<{ workspaceId: string; channelId?: string }>();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [workspaceMembers, setWorkspaceMembers] = useState<User[]>([]);
 
   const currentUser = useAuthStore((state) => state.currentUser);
   const workspaces = useWorkspaceStore((state) => state.workspaces);
@@ -23,6 +25,34 @@ export default function Sidebar() {
   const workspaceChannels = channels.filter((c) => c.workspaceId === workspaceId);
   const publicChannels = workspaceChannels.filter((c) => !c.isPrivate);
   const privateChannels = workspaceChannels.filter((c) => c.isPrivate);
+
+  // Fetch workspace members
+  useEffect(() => {
+    const fetchMembers = async () => {
+      if (!currentWorkspace || !currentWorkspace.members) return;
+
+      try {
+        const membersPromises = currentWorkspace.members.map(memberId => getUserById(memberId));
+        const membersData = await Promise.all(membersPromises);
+        const validMembers = membersData.filter((m): m is User => m !== null);
+
+        // Always include current user
+        if (currentUser && !validMembers.find(m => m.id === currentUser.id)) {
+          validMembers.push(currentUser);
+        }
+
+        setWorkspaceMembers(validMembers);
+      } catch (error) {
+        console.error('Failed to fetch workspace members:', error);
+      }
+    };
+
+    fetchMembers();
+  }, [currentWorkspace, currentUser]);
+
+  const onlineMembers = workspaceMembers.filter(m => m.status === 'online');
+  const awayMembers = workspaceMembers.filter(m => m.status === 'away');
+  const offlineMembers = workspaceMembers.filter(m => m.status === 'offline');
 
   const handleCreateChannel = async (data: { name: string; description: string; isPrivate: boolean }) => {
     if (!workspaceId || !currentUser) return;
@@ -56,15 +86,15 @@ export default function Sidebar() {
   };
 
   return (
-    <div className="w-64 bg-purple-900 text-white flex flex-col h-screen">
+    <div className="w-full lg:w-64 bg-purple-900 text-white flex flex-col h-screen">
       {/* Workspace Header */}
       <div className="p-4 border-b border-purple-800">
-        <button className="w-full flex items-center justify-between hover:bg-purple-800 rounded px-2 py-1 transition">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">{currentWorkspace?.icon}</span>
-            <span className="text-lg font-bold">{currentWorkspace?.name}</span>
+        <button className="w-full flex items-center justify-between hover:bg-purple-800 rounded px-2 py-1 transition pr-12 lg:pr-2">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <span className="text-2xl flex-shrink-0">{currentWorkspace?.icon}</span>
+            <span className="text-lg font-bold truncate">{currentWorkspace?.name}</span>
           </div>
-          <ChevronDown size={18} />
+          <ChevronDown size={18} className="flex-shrink-0" />
         </button>
 
         {/* Invite Button */}
@@ -166,6 +196,73 @@ export default function Sidebar() {
             </button>
           </div>
         </div>
+
+        {/* Teammates Section */}
+        {workspaceMembers.length > 0 && (
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-2 px-2">
+              <h3 className="text-sm font-semibold text-purple-300 flex items-center gap-1">
+                <ChevronDown size={14} />
+                Teammates
+              </h3>
+            </div>
+            <div className="space-y-0.5">
+              {/* Online Members */}
+              {onlineMembers.map((member) => (
+                <button
+                  key={member.id}
+                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-purple-800 transition text-left"
+                >
+                  <div className="relative flex-shrink-0">
+                    <img
+                      src={getUserAvatar(member.name, member.avatar)}
+                      alt={member.name}
+                      className="w-6 h-6 rounded"
+                    />
+                    <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 rounded-full border border-purple-900" />
+                  </div>
+                  <span className="text-sm text-purple-100 truncate flex-1">{member.name}</span>
+                </button>
+              ))}
+
+              {/* Away Members */}
+              {awayMembers.map((member) => (
+                <button
+                  key={member.id}
+                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-purple-800 transition text-left"
+                >
+                  <div className="relative flex-shrink-0">
+                    <img
+                      src={getUserAvatar(member.name, member.avatar)}
+                      alt={member.name}
+                      className="w-6 h-6 rounded opacity-75"
+                    />
+                    <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-yellow-500 rounded-full border border-purple-900" />
+                  </div>
+                  <span className="text-sm text-purple-100 opacity-75 truncate flex-1">{member.name}</span>
+                </button>
+              ))}
+
+              {/* Offline Members */}
+              {offlineMembers.map((member) => (
+                <button
+                  key={member.id}
+                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-purple-800 transition text-left"
+                >
+                  <div className="relative flex-shrink-0">
+                    <img
+                      src={getUserAvatar(member.name, member.avatar)}
+                      alt={member.name}
+                      className="w-6 h-6 rounded opacity-50"
+                    />
+                    <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-gray-500 rounded-full border border-purple-900" />
+                  </div>
+                  <span className="text-sm text-purple-100 opacity-50 truncate flex-1">{member.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* User Profile */}

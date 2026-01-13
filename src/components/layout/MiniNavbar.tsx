@@ -30,6 +30,7 @@ export default function MiniNavbar({ activeItem = 'home' }: MiniNavbarProps) {
     await logout();
     navigate('/login');
   };
+
   const navItems = [
     { id: 'home', icon: Home, label: 'Home' },
     { id: 'dms', icon: MessageSquare, label: 'DMs' },
@@ -39,9 +40,9 @@ export default function MiniNavbar({ activeItem = 'home' }: MiniNavbarProps) {
   ];
 
   return (
-    <div className="w-20 bg-gradient-to-b from-purple-950 to-purple-900 flex flex-col items-center py-4 border-r border-purple-800">
+    <div className="w-20 bg-gradient-to-b from-purple-950 to-purple-900 flex flex-col items-center py-4 border-r border-purple-800 h-screen">
       {/* Main Navigation Items */}
-      <div className="flex-1 flex flex-col gap-2 w-full px-2">
+      <div className="flex flex-col gap-2 w-full px-2">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeItem === item.id;
@@ -62,6 +63,19 @@ export default function MiniNavbar({ activeItem = 'home' }: MiniNavbarProps) {
           );
         })}
       </div>
+
+      {/* Spacer to push bottom items down */}
+      <div className="flex-1" />
+
+      {/* Sign Out Button */}
+      <button
+        onClick={handleLogout}
+        className="flex flex-col items-center gap-1 py-3 px-2 rounded-lg text-purple-300 hover:bg-purple-800 hover:text-white transition w-full"
+        title="Sign out"
+      >
+        <LogOut size={20} />
+        <span className="text-[10px] font-medium">Sign out</span>
+      </button>
 
       {/* Divider */}
       <div className="w-12 h-px bg-purple-700 my-2" />
