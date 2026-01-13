@@ -1,0 +1,176 @@
+import type { User, Workspace, Channel, Message } from '../types';
+
+export const mockUsers: User[] = [
+  {
+    id: 'user-1',
+    name: 'John Doe',
+    email: 'john@example.com',
+    status: 'online',
+    avatar: '👨‍💼',
+  },
+  {
+    id: 'user-2',
+    name: 'Jane Smith',
+    email: 'jane@example.com',
+    status: 'online',
+    avatar: '👩‍💻',
+  },
+  {
+    id: 'user-3',
+    name: 'Bob Johnson',
+    email: 'bob@example.com',
+    status: 'away',
+    statusText: 'In a meeting',
+    avatar: '👨‍🔧',
+  },
+  {
+    id: 'user-4',
+    name: 'Alice Williams',
+    email: 'alice@example.com',
+    status: 'offline',
+    avatar: '👩‍🎨',
+  },
+];
+
+export const mockWorkspaces: Workspace[] = [
+  {
+    id: 'default',
+    name: 'Acme Corp',
+    icon: '🏢',
+    ownerId: 'user-1',
+    createdAt: new Date('2024-01-01'),
+  },
+  {
+    id: 'workspace-2',
+    name: 'Side Project',
+    icon: '🚀',
+    ownerId: 'user-1',
+    createdAt: new Date('2024-02-15'),
+  },
+];
+
+export const mockChannels: Channel[] = [
+  {
+    id: 'general',
+    workspaceId: 'default',
+    name: 'general',
+    description: 'Company-wide announcements and general discussion',
+    isPrivate: false,
+    createdAt: new Date('2024-01-01'),
+    createdBy: 'user-1',
+    members: ['user-1', 'user-2', 'user-3', 'user-4'],
+  },
+  {
+    id: 'random',
+    workspaceId: 'default',
+    name: 'random',
+    description: 'Non-work banter and water cooler conversation',
+    isPrivate: false,
+    createdAt: new Date('2024-01-01'),
+    createdBy: 'user-1',
+    members: ['user-1', 'user-2', 'user-3', 'user-4'],
+  },
+  {
+    id: 'engineering',
+    workspaceId: 'default',
+    name: 'engineering',
+    description: 'Engineering team discussions',
+    isPrivate: false,
+    createdAt: new Date('2024-01-02'),
+    createdBy: 'user-2',
+    members: ['user-1', 'user-2'],
+  },
+  {
+    id: 'design',
+    workspaceId: 'default',
+    name: 'design',
+    description: 'Design team collaboration',
+    isPrivate: false,
+    createdAt: new Date('2024-01-02'),
+    createdBy: 'user-4',
+    members: ['user-2', 'user-4'],
+  },
+  {
+    id: 'leadership',
+    workspaceId: 'default',
+    name: 'leadership',
+    description: 'Private leadership discussions',
+    isPrivate: true,
+    createdAt: new Date('2024-01-03'),
+    createdBy: 'user-1',
+    members: ['user-1', 'user-3'],
+  },
+];
+
+export const mockMessages: Message[] = [
+  {
+    id: 'msg-1',
+    channelId: 'general',
+    userId: 'user-1',
+    content: 'Welcome to the team! 👋',
+    createdAt: new Date('2024-01-01T09:00:00'),
+    reactions: [
+      { emoji: '👋', userIds: ['user-2', 'user-3', 'user-4'], count: 3 },
+      { emoji: '🎉', userIds: ['user-2'], count: 1 },
+    ],
+  },
+  {
+    id: 'msg-2',
+    channelId: 'general',
+    userId: 'user-2',
+    content: 'Thanks! Excited to be here!',
+    createdAt: new Date('2024-01-01T09:05:00'),
+    reactions: [],
+  },
+  {
+    id: 'msg-3',
+    channelId: 'general',
+    userId: 'user-3',
+    content: 'Don\'t forget about the all-hands meeting at 2pm today',
+    createdAt: new Date('2024-01-01T10:30:00'),
+    reactions: [{ emoji: '👍', userIds: ['user-1', 'user-2'], count: 2 }],
+  },
+  {
+    id: 'msg-4',
+    channelId: 'engineering',
+    userId: 'user-2',
+    content: 'I pushed the new feature to staging. Can someone review?',
+    createdAt: new Date('2024-01-01T11:00:00'),
+    reactions: [{ emoji: '👀', userIds: ['user-1'], count: 1 }],
+  },
+  {
+    id: 'msg-5',
+    channelId: 'engineering',
+    userId: 'user-1',
+    content: 'Looking at it now!',
+    createdAt: new Date('2024-01-01T11:05:00'),
+    reactions: [],
+  },
+  {
+    id: 'msg-6',
+    channelId: 'random',
+    userId: 'user-4',
+    content: 'Anyone want to grab lunch?',
+    createdAt: new Date('2024-01-01T12:00:00'),
+    reactions: [{ emoji: '🍕', userIds: ['user-2', 'user-3'], count: 2 }],
+  },
+  {
+    id: 'msg-7',
+    channelId: 'random',
+    userId: 'user-2',
+    content: 'I\'m in! Pizza place around the corner?',
+    createdAt: new Date('2024-01-01T12:02:00'),
+    reactions: [],
+  },
+  {
+    id: 'msg-8',
+    channelId: 'design',
+    userId: 'user-4',
+    content: 'Here are the new mockups for the dashboard redesign',
+    createdAt: new Date('2024-01-01T14:00:00'),
+    reactions: [
+      { emoji: '🎨', userIds: ['user-2'], count: 1 },
+      { emoji: '🔥', userIds: ['user-2'], count: 1 },
+    ],
+  },
+];
