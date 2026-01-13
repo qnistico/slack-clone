@@ -1,8 +1,10 @@
+import MiniNavbar from '../components/layout/MiniNavbar';
 import Sidebar from '../components/sidebar/Sidebar';
 
 export default function WorkspacePage() {
   return (
     <div className="flex h-screen">
+      <MiniNavbar activeItem="home" />
       <Sidebar />
       <div className="flex-1 bg-gray-100">
         <div className="h-full flex items-center justify-center">

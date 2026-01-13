@@ -3,9 +3,11 @@ import HomePage from './pages/HomePage';
 import WorkspacePage from './pages/WorkspacePage';
 import ChannelPage from './pages/ChannelPage';
 import { useMockData } from './hooks/useMockData';
+import { useTheme } from './hooks/useTheme';
 
 function App() {
   useMockData();
+  useTheme(); // Initialize theme
 
   return (
     <BrowserRouter>
