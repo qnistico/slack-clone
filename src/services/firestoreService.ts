@@ -406,6 +406,24 @@ export const getWorkspaceInvites = async (workspaceId: string): Promise<Workspac
   }));
 };
 
+export const getPendingInvitesByEmail = async (email: string): Promise<WorkspaceInvite[]> => {
+  const q = query(
+    collection(db, 'workspace-invites'),
+    where('email', '==', email.toLowerCase()),
+    where('status', '==', 'pending')
+  );
+  const snapshot = await getDocs(q);
+
+  return snapshot.docs.map((doc) => ({
+    id: doc.id,
+    workspaceId: doc.data().workspaceId,
+    email: doc.data().email,
+    invitedBy: doc.data().invitedBy,
+    status: doc.data().status,
+    createdAt: (doc.data().createdAt as Timestamp)?.toDate() || new Date(),
+  }));
+};
+
 export const acceptWorkspaceInvite = async (inviteId: string, userId: string, workspaceId: string) => {
   // Update invite status
   await updateDoc(doc(db, 'workspace-invites', inviteId), {
@@ -424,4 +442,11 @@ export const acceptWorkspaceInvite = async (inviteId: string, userId: string, wo
       });
     }
   }
+};
+
+export const declineWorkspaceInvite = async (inviteId: string) => {
+  // Update invite status
+  await updateDoc(doc(db, 'workspace-invites', inviteId), {
+    status: 'declined',
+  });
 };

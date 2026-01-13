@@ -3,7 +3,14 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { useWorkspaceStore } from '../store/workspaceStore';
 import { Plus, Building2, LogOut, Trash2 } from 'lucide-react';
-import { deleteWorkspace } from '../services/firestoreService';
+import {
+  deleteWorkspace,
+  getPendingInvitesByEmail,
+  acceptWorkspaceInvite,
+  declineWorkspaceInvite
+} from '../services/firestoreService';
+import PendingInvitesModal from '../components/modals/PendingInvitesModal';
+import type { WorkspaceInvite } from '../types';
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -16,6 +23,8 @@ export default function HomePage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [workspaceName, setWorkspaceName] = useState('');
   const [creating, setCreating] = useState(false);
+  const [pendingInvites, setPendingInvites] = useState<WorkspaceInvite[]>([]);
+  const [showInvitesModal, setShowInvitesModal] = useState(false);
 
   useEffect(() => {
     if (currentUser) {
@@ -23,6 +32,25 @@ export default function HomePage() {
       return () => unsubscribe();
     }
   }, [currentUser, subscribeToUserWorkspaces]);
+
+  // Check for pending invites on mount
+  useEffect(() => {
+    const checkPendingInvites = async () => {
+      if (currentUser?.email) {
+        try {
+          const invites = await getPendingInvitesByEmail(currentUser.email);
+          if (invites.length > 0) {
+            setPendingInvites(invites);
+            setShowInvitesModal(true);
+          }
+        } catch (error) {
+          console.error('Failed to check pending invites:', error);
+        }
+      }
+    };
+
+    checkPendingInvites();
+  }, [currentUser?.email]);
 
   const handleCreateWorkspace = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,6 +89,15 @@ export default function HomePage() {
         alert('Failed to delete workspace. Please try again.');
       }
     }
+  };
+
+  const handleAcceptInvite = async (inviteId: string, workspaceId: string) => {
+    if (!currentUser) return;
+    await acceptWorkspaceInvite(inviteId, currentUser.id, workspaceId);
+  };
+
+  const handleDeclineInvite = async (inviteId: string) => {
+    await declineWorkspaceInvite(inviteId);
   };
 
   return (
@@ -191,6 +228,15 @@ export default function HomePage() {
           </div>
         </div>
       )}
+
+      {/* Pending Invites Modal */}
+      <PendingInvitesModal
+        isOpen={showInvitesModal}
+        onClose={() => setShowInvitesModal(false)}
+        invites={pendingInvites}
+        onAccept={handleAcceptInvite}
+        onDecline={handleDeclineInvite}
+      />
     </div>
   );
 }
