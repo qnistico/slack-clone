@@ -17,7 +17,7 @@ import {
   QueryConstraint,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import type { Message, Channel, Workspace, Reaction } from '../types/index';
+import type { Message, Channel, Workspace, Reaction, WorkspaceInvite } from '../types/index';
 
 // ============================================
 // WORKSPACE OPERATIONS
@@ -31,36 +31,92 @@ export const createWorkspace = async (
   const workspaceRef = await addDoc(collection(db, 'workspaces'), {
     name,
     ownerId,
+    members: [ownerId], // Owner is automatically a member
     icon: icon || null,
     createdAt: serverTimestamp(),
   });
   return workspaceRef.id;
 };
 
-export const getWorkspacesByUser = async (userId: string): Promise<Workspace[]> => {
-  const q = query(collection(db, 'workspaces'), where('ownerId', '==', userId));
-  const snapshot = await getDocs(q);
+export const deleteWorkspace = async (workspaceId: string): Promise<void> => {
+  // Delete all channels in the workspace
+  const channelsQuery = query(collection(db, 'channels'), where('workspaceId', '==', workspaceId));
+  const channelsSnapshot = await getDocs(channelsQuery);
 
-  return snapshot.docs.map((doc) => ({
-    id: doc.id,
-    name: doc.data().name,
-    ownerId: doc.data().ownerId,
-    icon: doc.data().icon,
-    createdAt: (doc.data().createdAt as Timestamp)?.toDate() || new Date(),
-  }));
+  const deletePromises = channelsSnapshot.docs.map((doc) => deleteDoc(doc.ref));
+  await Promise.all(deletePromises);
+
+  // Delete all messages in the workspace channels
+  const messagesQuery = query(collection(db, 'messages'), where('channelId', 'in',
+    channelsSnapshot.docs.length > 0 ? channelsSnapshot.docs.map(d => d.id) : ['__non_existent__']
+  ));
+  const messagesSnapshot = await getDocs(messagesQuery);
+
+  const deleteMessagePromises = messagesSnapshot.docs.map((doc) => deleteDoc(doc.ref));
+  await Promise.all(deleteMessagePromises);
+
+  // Delete the workspace
+  await deleteDoc(doc(db, 'workspaces', workspaceId));
+};
+
+export const getWorkspacesByUser = async (userId: string): Promise<Workspace[]> => {
+  try {
+    // Try to query for workspaces where user is a member
+    const memberQuery = query(collection(db, 'workspaces'), where('members', 'array-contains', userId));
+    const memberSnapshot = await getDocs(memberQuery);
+
+    // Also query for workspaces where user is the owner (for backwards compatibility)
+    const ownerQuery = query(collection(db, 'workspaces'), where('ownerId', '==', userId));
+    const ownerSnapshot = await getDocs(ownerQuery);
+
+    // Combine results and deduplicate
+    const workspaceMap = new Map<string, Workspace>();
+
+    [...memberSnapshot.docs, ...ownerSnapshot.docs].forEach((doc) => {
+      if (!workspaceMap.has(doc.id)) {
+        workspaceMap.set(doc.id, {
+          id: doc.id,
+          name: doc.data().name,
+          ownerId: doc.data().ownerId,
+          members: doc.data().members || [doc.data().ownerId],
+          icon: doc.data().icon,
+          createdAt: (doc.data().createdAt as Timestamp)?.toDate() || new Date(),
+        });
+      }
+    });
+
+    return Array.from(workspaceMap.values());
+  } catch (error) {
+    console.error('Error fetching workspaces:', error);
+    // Fallback to owner-only query if members query fails
+    const ownerQuery = query(collection(db, 'workspaces'), where('ownerId', '==', userId));
+    const ownerSnapshot = await getDocs(ownerQuery);
+
+    return ownerSnapshot.docs.map((doc) => ({
+      id: doc.id,
+      name: doc.data().name,
+      ownerId: doc.data().ownerId,
+      members: doc.data().members || [doc.data().ownerId],
+      icon: doc.data().icon,
+      createdAt: (doc.data().createdAt as Timestamp)?.toDate() || new Date(),
+    }));
+  }
 };
 
 export const subscribeToWorkspaces = (
   userId: string,
   callback: (workspaces: Workspace[]) => void
 ) => {
-  const q = query(collection(db, 'workspaces'), where('ownerId', '==', userId));
+  // For now, just use owner query for simplicity and performance
+  // This ensures immediate loading and backwards compatibility
+  const ownerQuery = query(collection(db, 'workspaces'), where('ownerId', '==', userId));
 
-  return onSnapshot(q, (snapshot) => {
+  return onSnapshot(ownerQuery, (snapshot) => {
     const workspaces = snapshot.docs.map((doc) => ({
       id: doc.id,
       name: doc.data().name,
       ownerId: doc.data().ownerId,
+      members: doc.data().members || [doc.data().ownerId],
       icon: doc.data().icon,
       createdAt: (doc.data().createdAt as Timestamp)?.toDate() || new Date(),
     }));
@@ -275,4 +331,97 @@ export const subscribeToThreadReplies = (
     }));
     callback(messages);
   });
+};
+
+// ============================================
+// USER OPERATIONS
+// ============================================
+
+export const getUserById = async (userId: string) => {
+  const userRef = doc(db, "users", userId);
+  const userSnap = await getDoc(userRef);
+
+  if (userSnap.exists()) {
+    return {
+      id: userSnap.id,
+      ...userSnap.data(),
+      createdAt: (userSnap.data().createdAt as Timestamp)?.toDate(),
+      lastSeen: (userSnap.data().lastSeen as Timestamp)?.toDate(),
+    };
+  }
+  return null;
+};
+
+export const getUserByEmail = async (email: string) => {
+  const q = query(collection(db, 'users'), where('email', '==', email));
+  const snapshot = await getDocs(q);
+
+  if (snapshot.empty) {
+    return null;
+  }
+
+  const doc = snapshot.docs[0];
+  return {
+    id: doc.id,
+    ...doc.data(),
+    createdAt: (doc.data().createdAt as Timestamp)?.toDate(),
+    lastSeen: (doc.data().lastSeen as Timestamp)?.toDate(),
+  };
+};
+
+// ============================================
+// WORKSPACE INVITE OPERATIONS
+// ============================================
+
+export const createWorkspaceInvite = async (
+  workspaceId: string,
+  email: string,
+  invitedBy: string
+): Promise<string> => {
+  const inviteRef = await addDoc(collection(db, 'workspace-invites'), {
+    workspaceId,
+    email: email.toLowerCase(),
+    invitedBy,
+    status: 'pending',
+    createdAt: serverTimestamp(),
+  });
+  return inviteRef.id;
+};
+
+export const getWorkspaceInvites = async (workspaceId: string): Promise<WorkspaceInvite[]> => {
+  const q = query(
+    collection(db, 'workspace-invites'),
+    where('workspaceId', '==', workspaceId),
+    where('status', '==', 'pending')
+  );
+  const snapshot = await getDocs(q);
+
+  return snapshot.docs.map((doc) => ({
+    id: doc.id,
+    workspaceId: doc.data().workspaceId,
+    email: doc.data().email,
+    invitedBy: doc.data().invitedBy,
+    status: doc.data().status,
+    createdAt: (doc.data().createdAt as Timestamp)?.toDate() || new Date(),
+  }));
+};
+
+export const acceptWorkspaceInvite = async (inviteId: string, userId: string, workspaceId: string) => {
+  // Update invite status
+  await updateDoc(doc(db, 'workspace-invites', inviteId), {
+    status: 'accepted',
+  });
+
+  // Add user to workspace members
+  const workspaceRef = doc(db, 'workspaces', workspaceId);
+  const workspaceSnap = await getDoc(workspaceRef);
+
+  if (workspaceSnap.exists()) {
+    const members = workspaceSnap.data().members || [];
+    if (!members.includes(userId)) {
+      await updateDoc(workspaceRef, {
+        members: [...members, userId],
+      });
+    }
+  }
 };

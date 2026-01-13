@@ -4,12 +4,24 @@ import MiniNavbar from '../components/layout/MiniNavbar';
 import Sidebar from '../components/sidebar/Sidebar';
 import { useChannelStore } from '../store/channelStore';
 import { useWorkspaceStore } from '../store/workspaceStore';
+import { useAuthStore } from '../store/authStore';
 
 export default function WorkspacePage() {
   const { workspaceId } = useParams<{ workspaceId: string }>();
+  const currentUser = useAuthStore((state) => state.currentUser);
   const setCurrentWorkspace = useWorkspaceStore((state) => state.setCurrentWorkspace);
+  const subscribeToUserWorkspaces = useWorkspaceStore((state) => state.subscribeToUserWorkspaces);
   const subscribeToWorkspaceChannels = useChannelStore((state) => state.subscribeToWorkspaceChannels);
 
+  // Subscribe to user workspaces
+  useEffect(() => {
+    if (currentUser) {
+      const unsubscribe = subscribeToUserWorkspaces(currentUser.id);
+      return () => unsubscribe();
+    }
+  }, [currentUser, subscribeToUserWorkspaces]);
+
+  // Subscribe to workspace channels
   useEffect(() => {
     if (workspaceId) {
       setCurrentWorkspace(workspaceId);

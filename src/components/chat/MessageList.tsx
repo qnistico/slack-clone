@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Smile, MessageSquare, MoreVertical, Pencil, Trash2, ArrowDown } from 'lucide-react';
 import type { Message, User } from '../../types';
+import { getUserAvatar } from '../../utils/avatar';
+import EmojiPicker from './EmojiPicker';
 
 interface MessageListProps {
   messages: Message[];
@@ -8,6 +10,9 @@ interface MessageListProps {
   onReactionClick?: (messageId: string, emoji: string) => void;
   onThreadClick?: (messageId: string) => void;
   onUserClick?: (userId: string) => void;
+  onEditMessage?: (messageId: string, currentContent: string) => void;
+  onDeleteMessage?: (messageId: string) => void;
+  currentUserId?: string;
 }
 
 export default function MessageList({
@@ -16,9 +21,13 @@ export default function MessageList({
   onReactionClick,
   onThreadClick,
   onUserClick,
+  onEditMessage,
+  onDeleteMessage,
+  currentUserId,
 }: MessageListProps) {
   const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -84,10 +93,14 @@ export default function MessageList({
           >
             <button
               onClick={() => onUserClick?.(message.userId)}
-              className="text-3xl flex-shrink-0 hover:opacity-80 transition cursor-pointer"
+              className="flex-shrink-0 hover:opacity-80 transition cursor-pointer"
               title="View profile"
             >
-              {user?.avatar}
+              <img
+                src={getUserAvatar(user?.name || 'Unknown', user?.avatar)}
+                alt={user?.name}
+                className="w-10 h-10 rounded-lg"
+              />
             </button>
             <div className="flex-1 min-w-0">
               <div className="flex items-baseline gap-2 mb-1">
@@ -130,14 +143,13 @@ export default function MessageList({
 
             {/* Hover Actions */}
             {isHovered && (
-              <div className="absolute top-0 right-2 flex items-center gap-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-1">
-                <button
-                  onClick={() => onReactionClick?.(message.id, '')}
-                  className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition"
-                  title="Add reaction"
-                >
-                  <Smile size={16} className="text-gray-600 dark:text-gray-400" />
-                </button>
+              <div className="absolute top-0 right-2 flex items-center gap-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-1 z-10">
+                <div className="relative">
+                  <EmojiPicker
+                    onEmojiSelect={(emoji) => onReactionClick?.(message.id, emoji)}
+                    buttonClassName="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition"
+                  />
+                </div>
                 <button
                   onClick={() => onThreadClick?.(message.id)}
                   className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition"
@@ -145,24 +157,59 @@ export default function MessageList({
                 >
                   <MessageSquare size={16} className="text-gray-600 dark:text-gray-400" />
                 </button>
-                <button
-                  className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition"
-                  title="Edit message"
-                >
-                  <Pencil size={16} className="text-gray-600 dark:text-gray-400" />
-                </button>
-                <button
-                  className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition"
-                  title="Delete message"
-                >
-                  <Trash2 size={16} className="text-gray-600 dark:text-gray-400" />
-                </button>
-                <button
-                  className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition"
-                  title="More actions"
-                >
-                  <MoreVertical size={16} className="text-gray-600 dark:text-gray-400" />
-                </button>
+                {currentUserId === message.userId && (
+                  <>
+                    <button
+                      onClick={() => onEditMessage?.(message.id, message.content)}
+                      className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition"
+                      title="Edit message"
+                    >
+                      <Pencil size={16} className="text-gray-600 dark:text-gray-400" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (window.confirm('Are you sure you want to delete this message?')) {
+                          onDeleteMessage?.(message.id);
+                        }
+                      }}
+                      className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition"
+                      title="Delete message"
+                    >
+                      <Trash2 size={16} className="text-gray-600 dark:text-gray-400" />
+                    </button>
+                  </>
+                )}
+                <div className="relative">
+                  <button
+                    onClick={() => setShowMoreMenu(showMoreMenu === message.id ? null : message.id)}
+                    className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition"
+                    title="More actions"
+                  >
+                    <MoreVertical size={16} className="text-gray-600 dark:text-gray-400" />
+                  </button>
+                  {showMoreMenu === message.id && (
+                    <div className="absolute top-full right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1 min-w-[150px] z-20">
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(message.content);
+                          setShowMoreMenu(null);
+                        }}
+                        className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                      >
+                        Copy text
+                      </button>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(window.location.href);
+                          setShowMoreMenu(null);
+                        }}
+                        className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                      >
+                        Copy link
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>

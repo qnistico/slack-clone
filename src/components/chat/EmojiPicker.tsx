@@ -39,14 +39,13 @@ export default function EmojiPicker({ onEmojiSelect, buttonClassName }: EmojiPic
 
   const handleEmojiClick = (emojiData: EmojiClickData) => {
     onEmojiSelect(emojiData.emoji);
-
-    // Save skin tone if it changed
-    if (emojiData.activeSkinTone && emojiData.activeSkinTone !== skinTone) {
-      setSkinTone(emojiData.activeSkinTone);
-      localStorage.setItem('emoji-skin-tone', emojiData.activeSkinTone.toString());
-    }
-
     setIsOpen(false);
+  };
+
+  // Handle skin tone change separately
+  const handleSkinToneChange = (newSkinTone: SkinTones) => {
+    setSkinTone(newSkinTone);
+    localStorage.setItem('emoji-skin-tone', newSkinTone.toString());
   };
 
   return (
@@ -64,6 +63,7 @@ export default function EmojiPicker({ onEmojiSelect, buttonClassName }: EmojiPic
         <div className="absolute bottom-full right-0 mb-2 z-50">
           <EmojiPickerReact
             onEmojiClick={handleEmojiClick}
+            onSkinToneChange={handleSkinToneChange}
             theme={theme === 'dark' ? Theme.DARK : Theme.LIGHT}
             skinTonesDisabled={false}
             defaultSkinTone={skinTone}

@@ -1,5 +1,6 @@
 import { Users, X } from 'lucide-react';
 import type { User, Channel } from '../../types';
+import { getUserAvatar } from '../../utils/avatar';
 
 interface UserListPanelProps {
   channel: Channel;
@@ -56,7 +57,11 @@ export default function UserListPanel({
                   className="w-full flex items-center gap-2 px-2 py-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition"
                 >
                   <div className="relative">
-                    <span className="text-2xl">{user.avatar}</span>
+                    <img
+                      src={getUserAvatar(user.name, user.avatar)}
+                      alt={user.name}
+                      className="w-8 h-8 rounded-lg"
+                    />
                     <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white dark:border-gray-900 rounded-full" />
                   </div>
                   <div className="flex-1 text-left min-w-0">
@@ -86,7 +91,11 @@ export default function UserListPanel({
                   className="w-full flex items-center gap-2 px-2 py-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition"
                 >
                   <div className="relative">
-                    <span className="text-2xl opacity-70">{user.avatar}</span>
+                    <img
+                      src={getUserAvatar(user.name, user.avatar)}
+                      alt={user.name}
+                      className="w-8 h-8 rounded-lg opacity-70"
+                    />
                     <div className="absolute bottom-0 right-0 w-3 h-3 bg-yellow-500 border-2 border-white dark:border-gray-900 rounded-full" />
                   </div>
                   <div className="flex-1 text-left min-w-0">
@@ -118,7 +127,11 @@ export default function UserListPanel({
                   className="w-full flex items-center gap-2 px-2 py-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition"
                 >
                   <div className="relative">
-                    <span className="text-2xl opacity-50">{user.avatar}</span>
+                    <img
+                      src={getUserAvatar(user.name, user.avatar)}
+                      alt={user.name}
+                      className="w-8 h-8 rounded-lg opacity-50"
+                    />
                     <div className="absolute bottom-0 right-0 w-3 h-3 bg-gray-400 border-2 border-white dark:border-gray-900 rounded-full" />
                   </div>
                   <div className="flex-1 text-left min-w-0">

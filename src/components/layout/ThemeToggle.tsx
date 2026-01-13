@@ -1,8 +1,29 @@
 import { Moon, Sun } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 
-export default function ThemeToggle() {
+interface ThemeToggleProps {
+  variant?: 'default' | 'sidebar';
+}
+
+export default function ThemeToggle({ variant = 'default' }: ThemeToggleProps) {
   const { theme, toggleTheme } = useTheme();
+
+  if (variant === 'sidebar') {
+    return (
+      <button
+        onClick={toggleTheme}
+        className="flex flex-col items-center gap-1 py-3 px-2 rounded-lg text-purple-300 hover:bg-purple-800 hover:text-white transition"
+        title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+      >
+        {theme === 'light' ? (
+          <Moon size={20} />
+        ) : (
+          <Sun size={20} />
+        )}
+        <span className="text-[10px] font-medium">Theme</span>
+      </button>
+    );
+  }
 
   return (
     <button

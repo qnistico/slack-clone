@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Home, MessageSquare, Bell, FolderOpen, MoreHorizontal, LogOut, User } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
+import ThemeToggle from './ThemeToggle';
 
 interface MiniNavbarProps {
   activeItem?: string;
@@ -64,6 +65,9 @@ export default function MiniNavbar({ activeItem = 'home' }: MiniNavbarProps) {
 
       {/* Divider */}
       <div className="w-12 h-px bg-purple-700 my-2" />
+
+      {/* Theme Toggle */}
+      <ThemeToggle variant="sidebar" />
 
       {/* User Profile with Dropdown */}
       <div className="relative" ref={menuRef}>

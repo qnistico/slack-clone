@@ -19,12 +19,13 @@ export const convertFirebaseUser = async (firebaseUser: FirebaseUser): Promise<U
   const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
   const userData = userDoc.data();
 
+  // Always set status to 'online' when converting (user is logging in)
   return {
     id: firebaseUser.uid,
     name: firebaseUser.displayName || 'Anonymous',
     email: firebaseUser.email || '',
     avatar: firebaseUser.photoURL || undefined,
-    status: userData?.status || 'online',
+    status: 'online', // Always online when user is actively using the app
     statusText: userData?.statusText || '',
   };
 };

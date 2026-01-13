@@ -4,21 +4,23 @@ import { Users, Trash2 } from 'lucide-react';
 import { useChannelStore } from '../store/channelStore';
 import { useMessageStore } from '../store/messageStore';
 import { useAuthStore } from '../store/authStore';
+import { useWorkspaceStore } from '../store/workspaceStore';
 import MiniNavbar from '../components/layout/MiniNavbar';
 import Sidebar from '../components/sidebar/Sidebar';
 import MessageList from '../components/chat/MessageList';
 import MessageInput from '../components/chat/MessageInput';
 import UserListPanel from '../components/sidebar/UserListPanel';
-import ThemeToggle from '../components/layout/ThemeToggle';
 import ThreadPanel from '../components/chat/ThreadPanel';
 import UserProfileModal from '../components/modals/UserProfileModal';
 import TypingIndicator from '../components/chat/TypingIndicator';
 import type { Message, User } from '../types/index';
+import { updateMessage, deleteMessage as deleteMessageFromDb } from '../services/firestoreService';
 
 export default function ChannelPage() {
   const navigate = useNavigate();
   const { channelId, workspaceId } = useParams<{ channelId: string; workspaceId: string }>();
   const currentUser = useAuthStore((state) => state.currentUser);
+  const subscribeToUserWorkspaces = useWorkspaceStore((state) => state.subscribeToUserWorkspaces);
   const channels = useChannelStore((state) => state.channels);
   const subscribeToWorkspaceChannels = useChannelStore((state) => state.subscribeToWorkspaceChannels);
   const deleteChannel = useChannelStore((state) => state.deleteChannel);
@@ -28,6 +30,14 @@ export default function ChannelPage() {
   const subscribeToChannelMessages = useMessageStore((state) => state.subscribeToChannelMessages);
   const subscribeToThread = useMessageStore((state) => state.subscribeToThread);
   const threadReplies = useMessageStore((state) => state.threadReplies);
+
+  // Subscribe to user workspaces
+  useEffect(() => {
+    if (currentUser) {
+      const unsubscribe = subscribeToUserWorkspaces(currentUser.id);
+      return () => unsubscribe();
+    }
+  }, [currentUser, subscribeToUserWorkspaces]);
 
   // Subscribe to channels in the workspace
   useEffect(() => {
@@ -106,11 +116,18 @@ export default function ChannelPage() {
 
   const threadMessages = activeThreadParent ? (threadReplies[activeThreadParent.id] || []) : [];
 
-  const handleUserClick = (userId: string) => {
-    // TODO: Fetch user from Firebase and show profile
-    console.log('User clicked:', userId);
-    // setSelectedUser(user);
-    // setIsProfileModalOpen(true);
+  const handleUserClick = async (userId: string) => {
+    try {
+      const { getUserById } = await import('../services/firestoreService');
+      const userData = await getUserById(userId);
+
+      if (userData) {
+        setSelectedUser(userData as User);
+        setIsProfileModalOpen(true);
+      }
+    } catch (error) {
+      console.error('Failed to fetch user:', error);
+    }
   };
 
   const handleDeleteChannel = async () => {
@@ -128,6 +145,27 @@ export default function ChannelPage() {
         console.error('Failed to delete channel:', error);
         alert('Failed to delete channel. Please try again.');
       }
+    }
+  };
+
+  const handleEditMessage = async (messageId: string, currentContent: string) => {
+    const newContent = prompt('Edit your message:', currentContent);
+    if (newContent && newContent.trim() && newContent !== currentContent) {
+      try {
+        await updateMessage(messageId, newContent.trim());
+      } catch (error) {
+        console.error('Failed to edit message:', error);
+        alert('Failed to edit message. Please try again.');
+      }
+    }
+  };
+
+  const handleDeleteMessage = async (messageId: string) => {
+    try {
+      await deleteMessageFromDb(messageId);
+    } catch (error) {
+      console.error('Failed to delete message:', error);
+      alert('Failed to delete message. Please try again.');
     }
   };
 
@@ -169,7 +207,6 @@ export default function ChannelPage() {
             )}
           </div>
           <div className="flex items-center gap-2">
-            <ThemeToggle />
             {isChannelOwner && (
               <button
                 onClick={handleDeleteChannel}
@@ -195,6 +232,9 @@ export default function ChannelPage() {
           onReactionClick={handleReactionClick}
           onThreadClick={handleThreadClick}
           onUserClick={handleUserClick}
+          onEditMessage={handleEditMessage}
+          onDeleteMessage={handleDeleteMessage}
+          currentUserId={currentUser?.id}
         />
         {currentUser && channelId && (
           <>

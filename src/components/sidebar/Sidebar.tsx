@@ -1,14 +1,18 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Hash, Lock, Plus, ChevronDown, MessageSquare } from 'lucide-react';
+import { Hash, Lock, Plus, ChevronDown, MessageSquare, UserPlus } from 'lucide-react';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { useChannelStore } from '../../store/channelStore';
 import { useAuthStore } from '../../store/authStore';
 import CreateChannelModal from '../modals/CreateChannelModal';
+import InviteModal from '../modals/InviteModal';
+import { createWorkspaceInvite, getUserByEmail } from '../../services/firestoreService';
+import { getUserAvatar } from '../../utils/avatar';
 
 export default function Sidebar() {
   const { workspaceId, channelId } = useParams<{ workspaceId: string; channelId?: string }>();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
 
   const currentUser = useAuthStore((state) => state.currentUser);
   const workspaces = useWorkspaceStore((state) => state.workspaces);
@@ -37,6 +41,20 @@ export default function Sidebar() {
     }
   };
 
+  const handleInvite = async (email: string) => {
+    if (!workspaceId || !currentUser) {
+      throw new Error('Missing workspace or user information');
+    }
+
+    // Check if user is already a member
+    const existingUser = await getUserByEmail(email);
+    if (existingUser && currentWorkspace?.members.includes(existingUser.id as string)) {
+      throw new Error('This user is already a member of the workspace');
+    }
+
+    await createWorkspaceInvite(workspaceId, email, currentUser.id);
+  };
+
   return (
     <div className="w-64 bg-purple-900 text-white flex flex-col h-screen">
       {/* Workspace Header */}
@@ -47,6 +65,16 @@ export default function Sidebar() {
             <span className="text-lg font-bold">{currentWorkspace?.name}</span>
           </div>
           <ChevronDown size={18} />
+        </button>
+
+        {/* Invite Button */}
+        <button
+          onClick={() => setIsInviteModalOpen(true)}
+          className="w-full mt-2 flex items-center justify-center gap-2 px-3 py-2 bg-purple-800 hover:bg-purple-700 rounded transition text-sm font-medium"
+          title="Invite teammates"
+        >
+          <UserPlus size={16} />
+          Invite Teammates
         </button>
       </div>
 
@@ -143,7 +171,11 @@ export default function Sidebar() {
       {/* User Profile */}
       <div className="p-4 border-t border-purple-800">
         <div className="flex items-center gap-2">
-          <span className="text-2xl">{currentUser?.avatar}</span>
+          <img
+            src={getUserAvatar(currentUser?.name || 'User', currentUser?.avatar)}
+            alt={currentUser?.name}
+            className="w-8 h-8 rounded-lg"
+          />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold truncate">{currentUser?.name}</p>
             <div className="flex items-center gap-1">
@@ -168,6 +200,15 @@ export default function Sidebar() {
         onClose={() => setIsCreateModalOpen(false)}
         onSubmit={handleCreateChannel}
         workspaceId={workspaceId || ''}
+      />
+
+      {/* Invite Modal */}
+      <InviteModal
+        isOpen={isInviteModalOpen}
+        onClose={() => setIsInviteModalOpen(false)}
+        workspaceId={workspaceId || ''}
+        workspaceName={currentWorkspace?.name || 'Workspace'}
+        onInvite={handleInvite}
       />
     </div>
   );

@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { useWorkspaceStore } from '../store/workspaceStore';
-import { Plus, Building2, LogOut } from 'lucide-react';
+import { Plus, Building2, LogOut, Trash2 } from 'lucide-react';
+import { deleteWorkspace } from '../services/firestoreService';
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -44,6 +45,24 @@ export default function HomePage() {
     navigate('/login');
   };
 
+  const handleDeleteWorkspace = async (workspaceId: string, workspaceName: string, e: React.MouseEvent) => {
+    e.preventDefault(); // Prevent navigation to workspace
+    e.stopPropagation();
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete "${workspaceName}"? This will delete all channels and messages. This action cannot be undone.`
+    );
+
+    if (confirmed) {
+      try {
+        await deleteWorkspace(workspaceId);
+      } catch (error) {
+        console.error('Failed to delete workspace:', error);
+        alert('Failed to delete workspace. Please try again.');
+      }
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
       {/* Header */}
@@ -79,23 +98,34 @@ export default function HomePage() {
         {/* Workspace Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
           {workspaces.map((workspace) => (
-            <Link
-              key={workspace.id}
-              to={`/workspace/${workspace.id}`}
-              className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md hover:shadow-lg transition border border-gray-200 dark:border-gray-700 hover:border-purple-500 dark:hover:border-purple-500"
-            >
-              <div className="flex items-center gap-4">
-                <div className="text-4xl">{workspace.icon || '🏢'}</div>
-                <div>
-                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-                    {workspace.name}
-                  </h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Click to open
-                  </p>
+            <div key={workspace.id} className="relative group">
+              <Link
+                to={`/workspace/${workspace.id}`}
+                className="block bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md hover:shadow-lg transition border border-gray-200 dark:border-gray-700 hover:border-purple-500 dark:hover:border-purple-500"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="text-4xl">{workspace.icon || '🏢'}</div>
+                  <div className="flex-1">
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                      {workspace.name}
+                    </h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Click to open
+                    </p>
+                  </div>
                 </div>
-              </div>
-            </Link>
+              </Link>
+              {/* Delete Button */}
+              {currentUser?.id === workspace.ownerId && (
+                <button
+                  onClick={(e) => handleDeleteWorkspace(workspace.id, workspace.name, e)}
+                  className="absolute top-2 right-2 p-2 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg opacity-0 group-hover:opacity-100 transition hover:bg-red-200 dark:hover:bg-red-900/50"
+                  title="Delete workspace"
+                >
+                  <Trash2 size={18} />
+                </button>
+              )}
+            </div>
           ))}
 
           {/* Create Workspace Card */}

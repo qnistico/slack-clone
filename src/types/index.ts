@@ -12,6 +12,16 @@ export interface Workspace {
   name: string;
   icon?: string;
   ownerId: string;
+  members: string[]; // user IDs who can access this workspace
+  createdAt: Date;
+}
+
+export interface WorkspaceInvite {
+  id: string;
+  workspaceId: string;
+  email: string;
+  invitedBy: string;
+  status: 'pending' | 'accepted' | 'declined';
   createdAt: Date;
 }
 

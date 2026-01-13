@@ -115,18 +115,26 @@ export const subscribeToMultipleUsersPresence = (
 export const setUserTyping = async (channelId: string, userId: string, userName: string) => {
   const typingRef = ref(realtimeDb, `typing/${channelId}/${userId}`);
 
-  await set(typingRef, {
-    userName,
-    timestamp: serverTimestamp(),
-  });
+  try {
+    await set(typingRef, {
+      userName,
+      timestamp: Date.now(),
+    });
 
-  // Auto-remove after 5 seconds
-  await onDisconnect(typingRef).remove();
+    // Auto-remove on disconnect
+    await onDisconnect(typingRef).remove();
 
-  // Set a timeout to remove typing indicator
-  setTimeout(async () => {
-    await remove(typingRef);
-  }, 5000);
+    // Set a timeout to remove typing indicator
+    setTimeout(async () => {
+      try {
+        await remove(typingRef);
+      } catch (error) {
+        console.error('Failed to remove typing indicator:', error);
+      }
+    }, 5000);
+  } catch (error) {
+    console.error('Failed to set typing indicator:', error);
+  }
 };
 
 export const removeUserTyping = async (channelId: string, userId: string) => {

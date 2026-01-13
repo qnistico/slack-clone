@@ -1,5 +1,6 @@
 import { X, Mail, Calendar, MessageSquare } from 'lucide-react';
 import type { User } from '../../types';
+import { getUserAvatar } from '../../utils/avatar';
 
 interface UserProfileModalProps {
   isOpen: boolean;
@@ -75,9 +76,11 @@ export default function UserProfileModal({
         <div className="px-6 pb-6">
           {/* Avatar */}
           <div className="relative -mt-12 mb-4">
-            <div className="w-24 h-24 rounded-lg bg-white dark:bg-gray-700 flex items-center justify-center text-6xl border-4 border-white dark:border-gray-800 shadow-lg">
-              {user.avatar}
-            </div>
+            <img
+              src={getUserAvatar(user.name, user.avatar)}
+              alt={user.name}
+              className="w-24 h-24 rounded-lg border-4 border-white dark:border-gray-800 shadow-lg"
+            />
             <div
               className={`absolute bottom-2 right-2 w-4 h-4 ${getStatusColor(user.status)} rounded-full border-2 border-white dark:border-gray-800`}
             />
