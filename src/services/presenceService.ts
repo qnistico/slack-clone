@@ -4,8 +4,6 @@ import {
   onValue,
   onDisconnect,
   serverTimestamp,
-  get,
-  update,
   remove,
 } from 'firebase/database';
 import { doc, setDoc } from 'firebase/firestore';

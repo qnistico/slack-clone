@@ -2,7 +2,6 @@ import {
   collection,
   doc,
   addDoc,
-  setDoc,
   getDoc,
   getDocs,
   updateDoc,
@@ -13,8 +12,6 @@ import {
   onSnapshot,
   serverTimestamp,
   Timestamp,
-  limit,
-  QueryConstraint,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import type { Message, Channel, Workspace, Reaction, WorkspaceInvite } from '../types/index';
@@ -337,16 +334,21 @@ export const subscribeToThreadReplies = (
 // USER OPERATIONS
 // ============================================
 
-export const getUserById = async (userId: string) => {
+export const getUserById = async (userId: string): Promise<any> => {
   const userRef = doc(db, "users", userId);
   const userSnap = await getDoc(userRef);
 
   if (userSnap.exists()) {
+    const data = userSnap.data();
     return {
       id: userSnap.id,
-      ...userSnap.data(),
-      createdAt: (userSnap.data().createdAt as Timestamp)?.toDate(),
-      lastSeen: (userSnap.data().lastSeen as Timestamp)?.toDate(),
+      name: data.name,
+      email: data.email,
+      avatar: data.avatar,
+      status: data.status,
+      statusText: data.statusText,
+      createdAt: (data.createdAt as Timestamp)?.toDate(),
+      lastSeen: (data.lastSeen as Timestamp)?.toDate(),
     };
   }
   return null;

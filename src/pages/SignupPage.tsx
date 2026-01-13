@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { signUpWithEmail, signInWithGoogle } from '../services/authService';
 import { useAuthStore } from '../store/authStore';
-import { Mail, Lock, User, UserPlus } from 'lucide-react';
+import { Mail, Lock, User, UserPlus, CheckCircle } from 'lucide-react';
 
 export default function SignupPage() {
   const [name, setName] = useState('');
@@ -11,6 +11,7 @@ export default function SignupPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
   const navigate = useNavigate();
   const login = useAuthStore((state) => state.login);
 
@@ -33,10 +34,12 @@ export default function SignupPage() {
     try {
       const user = await signUpWithEmail(email, password, name);
       login(user);
-      navigate('/');
+      setShowSuccess(true);
+      setTimeout(() => {
+        navigate('/');
+      }, 2000);
     } catch (err: any) {
       setError(err.message || 'Failed to create account');
-    } finally {
       setLoading(false);
     }
   };
@@ -48,10 +51,12 @@ export default function SignupPage() {
     try {
       const user = await signInWithGoogle();
       login(user);
-      navigate('/');
+      setShowSuccess(true);
+      setTimeout(() => {
+        navigate('/');
+      }, 2000);
     } catch (err: any) {
       setError(err.message || 'Failed to sign up with Google');
-    } finally {
       setLoading(false);
     }
   };
@@ -69,6 +74,13 @@ export default function SignupPage() {
         {error && (
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 px-4 py-3 rounded mb-4">
             {error}
+          </div>
+        )}
+
+        {showSuccess && (
+          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-600 dark:text-green-400 px-4 py-3 rounded mb-4 flex items-center gap-2">
+            <CheckCircle size={20} />
+            <span className="font-semibold">Congratulations! Your account has been created successfully.</span>
           </div>
         )}
 

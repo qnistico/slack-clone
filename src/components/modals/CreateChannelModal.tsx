@@ -5,14 +5,13 @@ interface CreateChannelModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (data: { name: string; description: string; isPrivate: boolean }) => void;
-  workspaceId: string;
+  workspaceId?: string;
 }
 
 export default function CreateChannelModal({
   isOpen,
   onClose,
   onSubmit,
-  workspaceId,
 }: CreateChannelModalProps) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');

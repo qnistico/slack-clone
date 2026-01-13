@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { X, Mail, Building2, Check, XIcon } from 'lucide-react';
-import type { WorkspaceInvite, Workspace } from '../../types';
+import { X, Mail, Check, XIcon } from 'lucide-react';
+import type { WorkspaceInvite } from '../../types';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 

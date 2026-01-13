@@ -121,7 +121,7 @@ export default function ChannelPage() {
       const { getUserById } = await import('../services/firestoreService');
       const userData = await getUserById(userId);
 
-      if (userData) {
+      if (userData && userData.name && userData.email) {
         setSelectedUser(userData as User);
         setIsProfileModalOpen(true);
       }

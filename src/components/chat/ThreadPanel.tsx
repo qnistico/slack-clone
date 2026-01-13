@@ -31,14 +31,6 @@ export default function ThreadPanel({
     }).format(date);
   };
 
-  const formatDate = (date: Date) => {
-    return new Intl.DateTimeFormat('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    }).format(date);
-  };
-
   return (
     <div className="w-96 border-l border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex flex-col h-full">
       {/* Header */}
@@ -111,7 +103,10 @@ export default function ThreadPanel({
       {/* Reply Input */}
       <div className="border-t border-gray-200 dark:border-gray-700">
         <MessageInput
-          channelName={`thread`}
+          channelId="thread"
+          channelName="thread"
+          userId={users[0]?.id || ''}
+          userName={users[0]?.name || ''}
           onSendMessage={onSendReply}
           placeholder="Reply to thread..."
         />

@@ -4,7 +4,7 @@ import { X, Mail, UserPlus, Loader } from 'lucide-react';
 interface InviteModalProps {
   isOpen: boolean;
   onClose: () => void;
-  workspaceId: string;
+  workspaceId?: string;
   workspaceName: string;
   onInvite: (email: string) => Promise<void>;
 }
@@ -12,7 +12,6 @@ interface InviteModalProps {
 export default function InviteModal({
   isOpen,
   onClose,
-  workspaceId,
   workspaceName,
   onInvite,
 }: InviteModalProps) {

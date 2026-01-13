@@ -38,6 +38,7 @@ export const mockWorkspaces: Workspace[] = [
     name: 'Acme Corp',
     icon: '🏢',
     ownerId: 'user-1',
+    members: ['user-1'],
     createdAt: new Date('2024-01-01'),
   },
   {
@@ -45,6 +46,7 @@ export const mockWorkspaces: Workspace[] = [
     name: 'Side Project',
     icon: '🚀',
     ownerId: 'user-1',
+    members: ['user-1'],
     createdAt: new Date('2024-02-15'),
   },
 ];
