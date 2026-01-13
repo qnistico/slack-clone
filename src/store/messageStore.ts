@@ -13,9 +13,15 @@ interface MessageState {
 export const useMessageStore = create<MessageState>((set, get) => ({
   messages: [],
   addMessage: (message) =>
-    set((state) => ({
-      messages: [...state.messages, message],
-    })),
+    set((state) => {
+      // Prevent duplicates
+      if (state.messages.some((m) => m.id === message.id)) {
+        return state;
+      }
+      return {
+        messages: [...state.messages, message],
+      };
+    }),
   getMessagesByChannel: (channelId) => {
     const state = get();
     return state.messages

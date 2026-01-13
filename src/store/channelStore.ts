@@ -14,9 +14,15 @@ export const useChannelStore = create<ChannelState>((set, get) => ({
   channels: [],
   currentChannelId: null,
   addChannel: (channel) =>
-    set((state) => ({
-      channels: [...state.channels, channel],
-    })),
+    set((state) => {
+      // Prevent duplicates
+      if (state.channels.some((c) => c.id === channel.id)) {
+        return state;
+      }
+      return {
+        channels: [...state.channels, channel],
+      };
+    }),
   setCurrentChannel: (channelId) => set({ currentChannelId: channelId }),
   getChannelsByWorkspace: (workspaceId) => {
     const state = get();

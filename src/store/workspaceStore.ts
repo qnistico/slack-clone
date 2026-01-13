@@ -13,9 +13,15 @@ export const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
   workspaces: [],
   currentWorkspaceId: null,
   addWorkspace: (workspace) =>
-    set((state) => ({
-      workspaces: [...state.workspaces, workspace],
-    })),
+    set((state) => {
+      // Prevent duplicates
+      if (state.workspaces.some((w) => w.id === workspace.id)) {
+        return state;
+      }
+      return {
+        workspaces: [...state.workspaces, workspace],
+      };
+    }),
   setCurrentWorkspace: (workspaceId) =>
     set({ currentWorkspaceId: workspaceId }),
   getCurrentWorkspace: () => {

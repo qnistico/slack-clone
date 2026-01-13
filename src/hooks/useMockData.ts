@@ -34,5 +34,6 @@ export function useMockData() {
     mockMessages.forEach((message) => {
       addMessage(message);
     });
-  }, [login, addWorkspace, addChannel, addMessage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
 }
