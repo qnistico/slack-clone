@@ -128,30 +128,53 @@ export default function DMPage() {
   // Check for pending call from sessionStorage (navigated from MiniNavbar answer)
   const [shouldAutoAnswer, setShouldAutoAnswer] = useState(false);
 
+  // Helper function to process pending call data
+  const processPendingCall = (data: { callId: string; callData: CallData }) => {
+    const { callId, callData } = data;
+    console.log('Processing pending call:', { callId, callData });
+
+    // Clear the pending call from sessionStorage
+    sessionStorage.removeItem('pendingCall');
+    setPendingCallProcessed(true);
+
+    // Set up the call modal - it will auto-answer because shouldAutoAnswer is true
+    setIncomingCall({ callId, callData });
+    setCallType(callData.type);
+    setShouldAutoAnswer(true);
+    setIsCallModalOpen(true);
+    console.log('CallModal opened with autoAnswer=true');
+  };
+
+  // Check sessionStorage on mount and when pendingCallProcessed changes
   useEffect(() => {
-    if (pendingCallProcessed || !currentUser || !otherUser) return;
+    if (pendingCallProcessed || !currentUser) return;
 
     const pendingCallData = sessionStorage.getItem('pendingCall');
     if (pendingCallData) {
       try {
-        const { callId, callData } = JSON.parse(pendingCallData);
-        console.log('Found pending call in sessionStorage:', { callId, callData });
-
-        // Clear the pending call immediately to prevent reprocessing
-        sessionStorage.removeItem('pendingCall');
-        setPendingCallProcessed(true);
-
-        // Set up the call modal - it will auto-answer because shouldAutoAnswer is true
-        setIncomingCall({ callId, callData });
-        setCallType(callData.type);
-        setShouldAutoAnswer(true);
-        setIsCallModalOpen(true);
+        processPendingCall(JSON.parse(pendingCallData));
       } catch (error) {
         console.error('Error processing pending call:', error);
         sessionStorage.removeItem('pendingCall');
       }
     }
-  }, [currentUser, otherUser, pendingCallProcessed]);
+  }, [currentUser, pendingCallProcessed]);
+
+  // Listen for custom event when user answers call while already on DMPage
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const handlePendingCallEvent = (event: CustomEvent<{ callId: string; callData: CallData }>) => {
+      console.log('Received pendingCallUpdated event:', event.detail);
+      // Always process the call from the event - it's a new call
+      processPendingCall(event.detail);
+    };
+
+    window.addEventListener('pendingCallUpdated', handlePendingCallEvent as EventListener);
+    return () => {
+      window.removeEventListener('pendingCallUpdated', handlePendingCallEvent as EventListener);
+    };
+  }, [currentUser]);
 
   const messages = dmId ? (dmMessages[dmId] || []) : [];
 
@@ -394,6 +417,8 @@ export default function DMPage() {
         onClose={() => {
           setIsCallModalOpen(false);
           setShouldAutoAnswer(false);
+          setIncomingCall(null); // Clear incoming call state for next call
+          setPendingCallProcessed(false); // Allow processing of future pending calls
         }}
         callType={callType}
         isIncoming={!!incomingCall}

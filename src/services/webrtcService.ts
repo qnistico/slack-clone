@@ -36,6 +36,9 @@ class WebRTCService {
   private iceCandidatesQueue: RTCIceCandidateInit[] = [];
   private isCallInitiator: boolean = false; // true if we started the call
 
+  // Firebase listener unsubscribe functions
+  private firebaseUnsubscribers: (() => void)[] = [];
+
   // Callbacks
   private onLocalStreamReady: ((stream: MediaStream) => void) | null = null;
   private onRemoteStreamReady: ((stream: MediaStream) => void) | null = null;
@@ -215,14 +218,22 @@ class WebRTCService {
     // Create peer connection
     this.peerConnection = this.createPeerConnection();
 
+    // Start listening for caller's ICE candidates BEFORE setting remote description
+    // This ensures we capture candidates that were sent while we were setting up
+    this.listenForIceCandidates(callId, 'caller');
+
     // Set remote description (the offer)
     await this.peerConnection.setRemoteDescription(
       new RTCSessionDescription(callData.offer)
     );
 
-    // Process any queued ICE candidates
+    // Process any queued ICE candidates that arrived before remote description was set
     for (const candidate of this.iceCandidatesQueue) {
-      await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+      try {
+        await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch (err) {
+        console.warn('Failed to add queued ICE candidate:', err);
+      }
     }
     this.iceCandidatesQueue = [];
 
@@ -239,9 +250,6 @@ class WebRTCService {
 
     // Notify local callback that call is accepted
     this.onCallStatusChange?.('accepted');
-
-    // Listen for caller's ICE candidates
-    this.listenForIceCandidates(callId, 'caller');
 
     // Listen for status changes (in case caller ends the call)
     this.listenForStatusChanges(callId);
@@ -275,7 +283,7 @@ class WebRTCService {
    */
   private listenForAnswer(callId: string): void {
     const answerRef = ref(realtimeDb, `calls/${callId}/answer`);
-    onValue(answerRef, async (snapshot) => {
+    const unsubscribe = onValue(answerRef, async (snapshot) => {
       const answer = snapshot.val() as RTCSessionDescriptionInit;
       if (answer && this.peerConnection) {
         await this.peerConnection.setRemoteDescription(
@@ -289,6 +297,7 @@ class WebRTCService {
         this.iceCandidatesQueue = [];
       }
     });
+    this.firebaseUnsubscribers.push(unsubscribe);
   }
 
   /**
@@ -296,7 +305,7 @@ class WebRTCService {
    */
   private listenForIceCandidates(callId: string, from: 'caller' | 'callee'): void {
     const candidatesRef = ref(realtimeDb, `calls/${callId}/candidates/${from}`);
-    onValue(candidatesRef, async (snapshot) => {
+    const unsubscribe = onValue(candidatesRef, async (snapshot) => {
       const candidates = snapshot.val() as Record<string, IceCandidate> | null;
       if (candidates && this.peerConnection) {
         for (const key of Object.keys(candidates)) {
@@ -316,6 +325,7 @@ class WebRTCService {
         }
       }
     });
+    this.firebaseUnsubscribers.push(unsubscribe);
   }
 
   /**
@@ -323,7 +333,7 @@ class WebRTCService {
    */
   private listenForStatusChanges(callId: string): void {
     const statusRef = ref(realtimeDb, `calls/${callId}/status`);
-    onValue(statusRef, (snapshot) => {
+    const unsubscribe = onValue(statusRef, (snapshot) => {
       const status = snapshot.val() as CallData['status'];
       this.onCallStatusChange?.(status);
 
@@ -332,6 +342,7 @@ class WebRTCService {
         this.onCallEnded?.();
       }
     });
+    this.firebaseUnsubscribers.push(unsubscribe);
   }
 
   /**
@@ -362,6 +373,16 @@ class WebRTCService {
    * Cleanup resources
    */
   private cleanup(): void {
+    // Unsubscribe from all Firebase listeners
+    this.firebaseUnsubscribers.forEach(unsub => {
+      try {
+        unsub();
+      } catch (e) {
+        // Ignore errors during unsubscribe
+      }
+    });
+    this.firebaseUnsubscribers = [];
+
     // Stop local stream tracks
     if (this.localStream) {
       this.localStream.getTracks().forEach(track => track.stop());
@@ -378,6 +399,19 @@ class WebRTCService {
     this.currentCallId = null;
     this.iceCandidatesQueue = [];
     this.isCallInitiator = false;
+
+    // Clear callbacks to prevent stale references
+    this.onLocalStreamReady = null;
+    this.onRemoteStreamReady = null;
+    this.onCallEnded = null;
+    this.onCallStatusChange = null;
+  }
+
+  /**
+   * Full reset - use when completely done with calls
+   */
+  fullReset(): void {
+    this.cleanup();
   }
 
   /**

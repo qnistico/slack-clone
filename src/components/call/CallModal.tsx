@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff, X } from 'lucide-react';
 import { webrtcService } from '../../services/webrtcService';
 import type { CallData } from '../../services/webrtcService';
@@ -35,9 +35,7 @@ export default function CallModal({
   remoteUserAvatar,
   autoAnswer = false,
 }: CallModalProps) {
-  const [callStatus, setCallStatus] = useState<CallData['status']>(
-    isIncoming ? 'ringing' : 'ringing'
-  );
+  const [callStatus, setCallStatus] = useState<CallData['status']>('ringing');
   const [isVideoEnabled, setIsVideoEnabled] = useState(callType === 'video');
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [callDuration, setCallDuration] = useState(0);
@@ -48,9 +46,63 @@ export default function CallModal({
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const durationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Reset all state when modal opens (to handle subsequent calls)
+  useEffect(() => {
+    if (isOpen) {
+      setCallStatus('ringing');
+      setIsVideoEnabled(callType === 'video');
+      setIsAudioEnabled(true);
+      setCallDuration(0);
+      setError(null);
+      setCallAnswered(false);
+    }
+  }, [isOpen, callType]);
+
   // Determine display name
   const displayName = isIncoming ? callData?.callerName : remoteUserName;
   const displayAvatar = remoteUserAvatar;
+
+  // Store streams in refs so we can attach them to video elements when they mount
+  const localStreamRef = useRef<MediaStream | null>(null);
+  const remoteStreamRef = useRef<MediaStream | null>(null);
+
+  // Callback ref for local video - attaches stream when element mounts
+  const setLocalVideoRef = useCallback((element: HTMLVideoElement | null) => {
+    localVideoRef.current = element;
+    if (element && localStreamRef.current) {
+      console.log('Local video element mounted, attaching stream');
+      element.srcObject = localStreamRef.current;
+      element.play().catch(e => console.log('Local video play failed:', e));
+    }
+  }, []);
+
+  // Callback ref for remote video - attaches stream when element mounts
+  const setRemoteVideoRef = useCallback((element: HTMLVideoElement | null) => {
+    remoteVideoRef.current = element;
+    if (element && remoteStreamRef.current) {
+      console.log('Remote video element mounted, attaching stream');
+      element.srcObject = remoteStreamRef.current;
+      element.play().catch(e => console.log('Remote video play failed:', e));
+    }
+  }, []);
+
+  // Effect to attach local stream to video element when it becomes available
+  useEffect(() => {
+    if (localVideoRef.current && localStreamRef.current) {
+      console.log('Attaching local stream to video element via effect');
+      localVideoRef.current.srcObject = localStreamRef.current;
+      localVideoRef.current.play().catch(e => console.log('Local video play failed:', e));
+    }
+  }, [isVideoEnabled, callStatus, callAnswered]);
+
+  // Effect to attach remote stream to video element when it becomes available
+  useEffect(() => {
+    if (remoteVideoRef.current && remoteStreamRef.current) {
+      console.log('Attaching remote stream to video element via effect');
+      remoteVideoRef.current.srcObject = remoteStreamRef.current;
+      remoteVideoRef.current.play().catch(e => console.log('Remote video play failed:', e));
+    }
+  }, [callStatus]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -62,12 +114,14 @@ export default function CallModal({
     webrtcService.setCallbacks({
       onLocalStreamReady: (stream) => {
         console.log('Local stream ready');
+        localStreamRef.current = stream;
         if (localVideoRef.current && isActive) {
           localVideoRef.current.srcObject = stream;
         }
       },
       onRemoteStreamReady: (stream) => {
         console.log('Remote stream ready');
+        remoteStreamRef.current = stream;
         if (remoteVideoRef.current && isActive) {
           remoteVideoRef.current.srcObject = stream;
         }
@@ -102,31 +156,38 @@ export default function CallModal({
     }
 
     // Auto-answer incoming call if requested (from notification click)
-    // Use a longer delay to ensure modal is fully mounted and callbacks are ready
+    console.log('CallModal useEffect - checking auto-answer:', { isIncoming, autoAnswer, callId, isOpen });
     if (isIncoming && autoAnswer && callId) {
       console.log('Auto-answering call from notification:', callId);
       const answerCall = async () => {
-        if (!isActive) return;
+        if (!isActive) {
+          console.log('Auto-answer aborted: effect no longer active');
+          return;
+        }
         try {
-          console.log('Starting auto-answer process...');
+          console.log('Starting auto-answer process for callId:', callId);
           setCallAnswered(true);
           await webrtcService.answerCall(callId);
-          console.log('Auto-answer successful');
+          console.log('Auto-answer successful, call should be connected');
         } catch (err) {
           console.error('Auto-answer failed:', err);
           setCallAnswered(false);
           setError(err instanceof Error ? err.message : 'Failed to answer call');
         }
       };
-      // Longer delay to ensure everything is ready
-      setTimeout(answerCall, 500);
+      // Small delay to ensure callbacks are set up
+      setTimeout(answerCall, 100);
     }
 
     return () => {
       isActive = false;
+      localStreamRef.current = null;
+      remoteStreamRef.current = null;
       if (durationIntervalRef.current) {
         clearInterval(durationIntervalRef.current);
       }
+      // Reset the WebRTC service when modal closes to prepare for next call
+      webrtcService.fullReset();
     };
   }, [isOpen, autoAnswer, callId, isIncoming]);
 
@@ -232,7 +293,7 @@ export default function CallModal({
           {/* Remote video (full size background) */}
           {callType === 'video' && callStatus === 'accepted' ? (
             <video
-              ref={remoteVideoRef}
+              ref={setRemoteVideoRef}
               autoPlay
               playsInline
               className="w-full h-full object-cover"
@@ -271,7 +332,7 @@ export default function CallModal({
           {callType === 'video' && isVideoEnabled && (
             <div className="absolute bottom-24 right-4 w-48 h-36 bg-gray-800 rounded-lg overflow-hidden shadow-lg border-2 border-gray-700">
               <video
-                ref={localVideoRef}
+                ref={setLocalVideoRef}
                 autoPlay
                 playsInline
                 muted

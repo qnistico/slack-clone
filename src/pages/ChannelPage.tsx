@@ -18,6 +18,7 @@ import TypingIndicator from '../components/chat/TypingIndicator';
 import type { Message, User } from '../types/index';
 import { updateMessage, deleteMessage as deleteMessageFromDb, getUserById, addChannelMember, addWorkspaceMember } from '../services/firestoreService';
 import { MessageListSkeleton } from '../components/common/Skeleton';
+import { demoActivityService, DEMO_WORKSPACE_ID } from '../services/demoActivityService';
 
 export default function ChannelPage() {
   const navigate = useNavigate();
@@ -183,6 +184,22 @@ export default function ChannelPage() {
 
     autoJoinChannel();
   }, [currentUser, currentChannel, channelId]);
+
+  // Demo workspace: Start simulated activity sequence
+  useEffect(() => {
+    if (!workspaceId || !channelId || !currentUser) return;
+
+    // Only trigger in demo workspace
+    if (workspaceId === DEMO_WORKSPACE_ID) {
+      // Start the demo activity sequence (typing indicator, then notification)
+      demoActivityService.startActivitySequence(workspaceId, channelId, currentUser.id);
+
+      return () => {
+        demoActivityService.stop();
+      };
+    }
+  }, [workspaceId, channelId, currentUser]);
+
   const channelMessages = channelId
     ? messages
         .filter((m) => m.channelId === channelId && !m.threadId)

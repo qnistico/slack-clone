@@ -92,15 +92,23 @@ export default function MiniNavbar({ activeItem = 'home' }: MiniNavbarProps) {
       const workspaceId = match ? match[1] : null;
 
       if (workspaceId) {
-        // Create or get DM with the caller and navigate there
         try {
+          // Create or get DM with the caller
           const { createOrGetDM } = await import('../../services/firestoreService');
           const dmId = await createOrGetDM(currentUser!.id, incomingCall.callData.callerId);
-          // Store the incoming call info so DMPage can pick it up
-          sessionStorage.setItem('pendingCall', JSON.stringify({
+
+          // Store the incoming call info so DMPage can pick it up and show CallModal
+          const pendingCallData = {
             callId: incomingCall.callId,
             callData: incomingCall.callData,
-          }));
+            alreadyAnswered: false, // Will be answered by DMPage/CallModal
+          };
+          sessionStorage.setItem('pendingCall', JSON.stringify(pendingCallData));
+
+          // Dispatch a custom event so DMPage can react immediately (if already mounted)
+          window.dispatchEvent(new CustomEvent('pendingCallUpdated', { detail: pendingCallData }));
+
+          // Navigate to DM page - the call will be answered there
           navigate(`/workspace/${workspaceId}/dm/${dmId}`);
         } catch (error) {
           console.error('Error navigating to call:', error);
