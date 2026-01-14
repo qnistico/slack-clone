@@ -6,11 +6,13 @@ import {
   createChannel as createFirestoreChannel,
   addChannelMember,
   deleteChannel as deleteFirestoreChannel,
+  updateChannel as updateFirestoreChannel,
 } from '../services/firestoreService';
 
 interface ChannelState {
   channels: Channel[];
   currentChannelId: string | null;
+  currentWorkspaceId: string | null;
   isLoading: boolean;
   addChannel: (channel: Channel) => void;
   setChannels: (channels: Channel[]) => void;
@@ -26,6 +28,7 @@ interface ChannelState {
   ) => Promise<string>;
   joinChannel: (channelId: string, userId: string) => Promise<void>;
   deleteChannel: (channelId: string) => Promise<void>;
+  updateChannel: (channelId: string, updates: { name?: string; description?: string; isPrivate?: boolean }) => Promise<void>;
   subscribeToWorkspaceChannels: (workspaceId: string) => () => void;
 }
 
@@ -34,6 +37,7 @@ export const useChannelStore = create<ChannelState>()(
     (set, get) => ({
       channels: [],
       currentChannelId: null,
+      currentWorkspaceId: null,
       isLoading: false,
 
       addChannel: (channel) =>
@@ -98,9 +102,28 @@ export const useChannelStore = create<ChannelState>()(
         }
       },
 
+      updateChannel: async (channelId, updates) => {
+        try {
+          await updateFirestoreChannel(channelId, updates);
+        } catch (error) {
+          console.error('Failed to update channel:', error);
+          throw error;
+        }
+      },
+
       subscribeToWorkspaceChannels: (workspaceId) => {
+        // Track the workspace we're subscribing to
+        set({ currentWorkspaceId: workspaceId });
+
         return subscribeToChannels(workspaceId, (channels) => {
-          set({ channels });
+          // Only update if this is still the current workspace
+          // This prevents stale data from old subscriptions
+          const currentState = get();
+          if (currentState.currentWorkspaceId === workspaceId) {
+            // Only update if we got valid data (not empty due to error)
+            // or if we intentionally have no channels
+            set({ channels });
+          }
         });
       },
     }),
@@ -108,6 +131,8 @@ export const useChannelStore = create<ChannelState>()(
       name: 'channel-storage',
       partialize: (state) => ({
         currentChannelId: state.currentChannelId,
+        channels: state.channels,
+        currentWorkspaceId: state.currentWorkspaceId,
       }),
     }
   )

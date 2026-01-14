@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Users, Trash2, Menu, ArrowLeft } from 'lucide-react';
+import { Users, Trash2, Menu, ArrowLeft, Settings } from 'lucide-react';
 import { useChannelStore } from '../store/channelStore';
 import { useMessageStore } from '../store/messageStore';
 import { useAuthStore } from '../store/authStore';
@@ -13,9 +13,11 @@ import MessageInput from '../components/chat/MessageInput';
 import UserListPanel from '../components/sidebar/UserListPanel';
 import ThreadPanel from '../components/chat/ThreadPanel';
 import UserProfileModal from '../components/modals/UserProfileModal';
+import EditChannelModal from '../components/modals/EditChannelModal';
 import TypingIndicator from '../components/chat/TypingIndicator';
 import type { Message, User } from '../types/index';
 import { updateMessage, deleteMessage as deleteMessageFromDb, getUserById, addChannelMember, addWorkspaceMember } from '../services/firestoreService';
+import { MessageListSkeleton } from '../components/common/Skeleton';
 
 export default function ChannelPage() {
   const navigate = useNavigate();
@@ -26,6 +28,7 @@ export default function ChannelPage() {
   const channels = useChannelStore((state) => state.channels);
   const subscribeToWorkspaceChannels = useChannelStore((state) => state.subscribeToWorkspaceChannels);
   const deleteChannel = useChannelStore((state) => state.deleteChannel);
+  const updateChannel = useChannelStore((state) => state.updateChannel);
   const messages = useMessageStore((state) => state.messages);
   const sendNewMessage = useMessageStore((state) => state.sendNewMessage);
   const addReaction = useMessageStore((state) => state.addReaction);
@@ -54,8 +57,14 @@ export default function ChannelPage() {
   // Subscribe to messages in the channel
   useEffect(() => {
     if (channelId) {
+      setIsLoadingMessages(true);
       const unsubscribe = subscribeToChannelMessages(channelId);
-      return () => unsubscribe();
+      // Give a small delay for initial load
+      const timer = setTimeout(() => setIsLoadingMessages(false), 500);
+      return () => {
+        unsubscribe();
+        clearTimeout(timer);
+      };
     }
   }, [channelId, subscribeToChannelMessages]);
 
@@ -130,12 +139,14 @@ export default function ChannelPage() {
     fetchWorkspaceMembers();
   }, [workspaceId, workspaces]);
 
-  const [isUserListOpen, setIsUserListOpen] = useState(true); // Auto-open on desktop
+  const [isUserListOpen, setIsUserListOpen] = useState(false); // Hidden by default - teammates shown in sidebar
   const [isThreadOpen, setIsThreadOpen] = useState(false);
   const [activeThreadParent, setActiveThreadParent] = useState<Message | null>(null);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(true);
+  const [isEditChannelModalOpen, setIsEditChannelModalOpen] = useState(false);
 
   const currentChannel = channels.find((c) => c.id === channelId);
 
@@ -262,6 +273,21 @@ export default function ChannelPage() {
     }
   };
 
+  const handleEditChannel = async (data: { name: string; description: string; isPrivate: boolean }) => {
+    if (!channelId || !currentChannel) return;
+
+    try {
+      await updateChannel(channelId, {
+        name: data.name,
+        description: data.description,
+        isPrivate: data.isPrivate,
+      });
+    } catch (error) {
+      console.error('Failed to update channel:', error);
+      alert('Failed to update channel. Please try again.');
+    }
+  };
+
   const handleEditMessage = async (messageId: string, currentContent: string) => {
     const newContent = prompt('Edit your message:', currentContent);
     if (newContent && newContent.trim() && newContent !== currentContent) {
@@ -364,13 +390,22 @@ export default function ChannelPage() {
           </div>
           <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
             {isChannelOwner && (
-              <button
-                onClick={handleDeleteChannel}
-                className="p-2 sm:p-2.5 hover:bg-red-100 dark:hover:bg-red-900/20 rounded transition text-red-600 dark:text-red-400"
-                title="Delete channel"
-              >
-                <Trash2 size={18} className="sm:w-5 sm:h-5" />
-              </button>
+              <>
+                <button
+                  onClick={() => setIsEditChannelModalOpen(true)}
+                  className="p-2 sm:p-2.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition"
+                  title="Edit channel"
+                >
+                  <Settings size={18} className="sm:w-5 sm:h-5 text-gray-600 dark:text-gray-400" />
+                </button>
+                <button
+                  onClick={handleDeleteChannel}
+                  className="p-2 sm:p-2.5 hover:bg-red-100 dark:hover:bg-red-900/20 rounded transition text-red-600 dark:text-red-400"
+                  title="Delete channel"
+                >
+                  <Trash2 size={18} className="sm:w-5 sm:h-5" />
+                </button>
+              </>
             )}
             <button
               onClick={() => setIsUserListOpen(!isUserListOpen)}
@@ -382,16 +417,20 @@ export default function ChannelPage() {
           </div>
         </div>
 
-        <MessageList
-          messages={channelMessages}
-          users={workspaceMembers}
-          onReactionClick={handleReactionClick}
-          onThreadClick={handleThreadClick}
-          onUserClick={handleUserClick}
-          onEditMessage={handleEditMessage}
-          onDeleteMessage={handleDeleteMessage}
-          currentUserId={currentUser?.id}
-        />
+        {isLoadingMessages ? (
+          <MessageListSkeleton count={6} />
+        ) : (
+          <MessageList
+            messages={channelMessages}
+            users={workspaceMembers}
+            onReactionClick={handleReactionClick}
+            onThreadClick={handleThreadClick}
+            onUserClick={handleUserClick}
+            onEditMessage={handleEditMessage}
+            onDeleteMessage={handleDeleteMessage}
+            currentUserId={currentUser?.id}
+          />
+        )}
         {currentUser && channelId && (
           <>
             <TypingIndicator channelId={channelId} currentUserId={currentUser.id} />
@@ -401,6 +440,7 @@ export default function ChannelPage() {
               userId={currentUser.id}
               userName={currentUser.name}
               onSendMessage={handleSendMessage}
+              workspaceMembers={workspaceMembers.map(m => ({ id: m.id, name: m.name }))}
             />
           </>
         )}
@@ -418,6 +458,8 @@ export default function ChannelPage() {
           threadMessages={threadMessages}
           users={workspaceMembers}
           onSendReply={handleSendThreadReply}
+          currentUserId={currentUser?.id}
+          currentUserName={currentUser?.name}
         />
       )}
 
@@ -437,6 +479,14 @@ export default function ChannelPage() {
           setSelectedUser(null);
         }}
         user={selectedUser}
+      />
+
+      {/* Edit Channel Modal */}
+      <EditChannelModal
+        isOpen={isEditChannelModalOpen}
+        onClose={() => setIsEditChannelModalOpen(false)}
+        onSubmit={handleEditChannel}
+        channel={currentChannel}
       />
     </div>
   );

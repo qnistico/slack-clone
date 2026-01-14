@@ -1,0 +1,26 @@
+{
+  "rules": {
+    "calls": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "typing": {
+      "$channelId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    "status": {
+      "$uid": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.uid == $uid"
+      }
+    },
+    "notifications": {
+      "$userId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    }
+  }
+}

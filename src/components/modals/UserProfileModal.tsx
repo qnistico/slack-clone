@@ -9,6 +9,29 @@ interface UserProfileModalProps {
   onSendMessage?: (userId: string) => void;
 }
 
+// Helper function to format last seen time
+function formatLastSeen(date: Date | undefined): string {
+  if (!date) return '';
+
+  const now = new Date();
+  const lastSeenDate = date instanceof Date ? date : new Date(date);
+  const diffMs = now.getTime() - lastSeenDate.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return 'just now';
+  if (diffMins < 60) return `${diffMins} minute${diffMins !== 1 ? 's' : ''} ago`;
+  if (diffHours < 24) return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
+  if (diffDays < 7) return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
+
+  return lastSeenDate.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: lastSeenDate.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
+  });
+}
+
 export default function UserProfileModal({
   isOpen,
   onClose,
@@ -38,19 +61,33 @@ export default function UserProfileModal({
       case 'away':
         return 'bg-yellow-500';
       case 'offline':
-        return 'bg-gray-500';
+        return 'bg-gray-400';
       default:
-        return 'bg-gray-500';
+        return 'bg-gray-400';
     }
   };
 
-  const getStatusText = (status: User['status']) => {
+  const getStatusAnimation = (status: User['status']) => {
     switch (status) {
       case 'online':
-        return 'Active';
+        return 'presence-online';
+      case 'away':
+        return 'animate-pulse';
+      default:
+        return '';
+    }
+  };
+
+  const getStatusText = (status: User['status'], lastSeen?: Date) => {
+    switch (status) {
+      case 'online':
+        return 'Active now';
       case 'away':
         return 'Away';
       case 'offline':
+        if (lastSeen) {
+          return `Last seen ${formatLastSeen(lastSeen)}`;
+        }
         return 'Offline';
       default:
         return 'Unknown';
@@ -82,7 +119,7 @@ export default function UserProfileModal({
               className="w-24 h-24 rounded-lg border-4 border-white dark:border-gray-800 shadow-lg"
             />
             <div
-              className={`absolute bottom-2 right-2 w-4 h-4 ${getStatusColor(user.status)} rounded-full border-2 border-white dark:border-gray-800`}
+              className={`absolute bottom-2 right-2 w-4 h-4 ${getStatusColor(user.status)} ${getStatusAnimation(user.status)} rounded-full border-2 border-white dark:border-gray-800`}
             />
           </div>
 
@@ -91,9 +128,9 @@ export default function UserProfileModal({
             <div>
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{user.name}</h2>
               <div className="flex items-center gap-2 mt-1">
-                <div className={`w-2 h-2 ${getStatusColor(user.status)} rounded-full`} />
+                <div className={`w-2 h-2 ${getStatusColor(user.status)} ${getStatusAnimation(user.status)} rounded-full`} />
                 <span className="text-sm text-gray-600 dark:text-gray-400">
-                  {getStatusText(user.status)}
+                  {getStatusText(user.status, user.lastSeen)}
                 </span>
               </div>
               {user.statusText && (

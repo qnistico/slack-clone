@@ -1,5 +1,6 @@
 import { X } from 'lucide-react';
 import type { Message, User } from '../../types';
+import { formatMessageContent } from '../../utils/messageFormatter';
 import MessageInput from './MessageInput';
 
 interface ThreadPanelProps {
@@ -9,6 +10,8 @@ interface ThreadPanelProps {
   threadMessages: Message[];
   users: User[];
   onSendReply: (content: string) => void;
+  currentUserId?: string;
+  currentUserName?: string;
 }
 
 export default function ThreadPanel({
@@ -18,6 +21,8 @@ export default function ThreadPanel({
   threadMessages,
   users,
   onSendReply,
+  currentUserId,
+  currentUserName,
 }: ThreadPanelProps) {
   if (!isOpen || !parentMessage) return null;
 
@@ -55,9 +60,9 @@ export default function ThreadPanel({
                 {formatTime(parentMessage.createdAt)}
               </span>
             </div>
-            <p className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words">
-              {parentMessage.content}
-            </p>
+            <div className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words">
+              {formatMessageContent(parentMessage.content)}
+            </div>
           </div>
         </div>
         {threadMessages.length > 0 && (
@@ -90,9 +95,9 @@ export default function ThreadPanel({
                       {formatTime(message.createdAt)}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words">
-                    {message.content}
-                  </p>
+                  <div className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words">
+                    {formatMessageContent(message.content)}
+                  </div>
                 </div>
               </div>
             );
@@ -105,10 +110,11 @@ export default function ThreadPanel({
         <MessageInput
           channelId="thread"
           channelName="thread"
-          userId={users[0]?.id || ''}
-          userName={users[0]?.name || ''}
+          userId={currentUserId || users[0]?.id || ''}
+          userName={currentUserName || users[0]?.name || ''}
           onSendMessage={onSendReply}
           placeholder="Reply to thread..."
+          workspaceMembers={users.map(u => ({ id: u.id, name: u.name }))}
         />
       </div>
     </div>

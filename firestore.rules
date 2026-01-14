@@ -121,5 +121,15 @@ service cloud.firestore {
       // Only the person who created the invite can delete it
       allow delete: if isSignedIn() && request.auth.uid == resource.data.invitedBy;
     }
+
+    // Direct Messages collection
+    match /directMessages/{dmId} {
+      // Users can read DMs if they are a participant
+      allow read: if isSignedIn() && request.auth.uid in resource.data.participants;
+      // Users can create DMs if they are one of the participants
+      allow create: if isSignedIn() && request.auth.uid in request.resource.data.participants;
+      // Users can update DMs if they are a participant (for updating lastActivity)
+      allow update: if isSignedIn() && request.auth.uid in resource.data.participants;
+    }
   }
 }

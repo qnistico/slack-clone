@@ -128,29 +128,43 @@ export const subscribeToWorkspaces = (
     callback(Array.from(workspaceMap.values()));
   };
 
-  const unsubscribeMember = onSnapshot(memberQuery, (snapshot) => {
-    memberWorkspaces = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      name: doc.data().name,
-      ownerId: doc.data().ownerId,
-      members: doc.data().members || [doc.data().ownerId],
-      icon: doc.data().icon,
-      createdAt: (doc.data().createdAt as Timestamp)?.toDate() || new Date(),
-    }));
-    mergeAndCallback();
-  });
+  const unsubscribeMember = onSnapshot(
+    memberQuery,
+    (snapshot) => {
+      memberWorkspaces = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        name: doc.data().name,
+        ownerId: doc.data().ownerId,
+        members: doc.data().members || [doc.data().ownerId],
+        icon: doc.data().icon,
+        createdAt: (doc.data().createdAt as Timestamp)?.toDate() || new Date(),
+      }));
+      mergeAndCallback();
+    },
+    (error) => {
+      console.error('Error in member workspaces subscription:', error);
+      // Don't clear workspaces on error
+    }
+  );
 
-  const unsubscribeOwner = onSnapshot(ownerQuery, (snapshot) => {
-    ownerWorkspaces = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      name: doc.data().name,
-      ownerId: doc.data().ownerId,
-      members: doc.data().members || [doc.data().ownerId],
-      icon: doc.data().icon,
-      createdAt: (doc.data().createdAt as Timestamp)?.toDate() || new Date(),
-    }));
-    mergeAndCallback();
-  });
+  const unsubscribeOwner = onSnapshot(
+    ownerQuery,
+    (snapshot) => {
+      ownerWorkspaces = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        name: doc.data().name,
+        ownerId: doc.data().ownerId,
+        members: doc.data().members || [doc.data().ownerId],
+        icon: doc.data().icon,
+        createdAt: (doc.data().createdAt as Timestamp)?.toDate() || new Date(),
+      }));
+      mergeAndCallback();
+    },
+    (error) => {
+      console.error('Error in owner workspaces subscription:', error);
+      // Don't clear workspaces on error
+    }
+  );
 
   // Return a function that unsubscribes from both
   return () => {
@@ -204,19 +218,26 @@ export const subscribeToChannels = (
 ) => {
   const q = query(collection(db, 'channels'), where('workspaceId', '==', workspaceId));
 
-  return onSnapshot(q, (snapshot) => {
-    const channels = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      workspaceId: doc.data().workspaceId,
-      name: doc.data().name,
-      description: doc.data().description,
-      isPrivate: doc.data().isPrivate,
-      createdBy: doc.data().createdBy,
-      createdAt: (doc.data().createdAt as Timestamp)?.toDate() || new Date(),
-      members: doc.data().members || [],
-    }));
-    callback(channels);
-  });
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const channels = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        workspaceId: doc.data().workspaceId,
+        name: doc.data().name,
+        description: doc.data().description,
+        isPrivate: doc.data().isPrivate,
+        createdBy: doc.data().createdBy,
+        createdAt: (doc.data().createdAt as Timestamp)?.toDate() || new Date(),
+        members: doc.data().members || [],
+      }));
+      callback(channels);
+    },
+    (error) => {
+      console.error('Error in channels subscription:', error);
+      // Don't call callback with empty array on error - keep existing data
+    }
+  );
 };
 
 export const addChannelMember = async (channelId: string, userId: string): Promise<void> => {
@@ -228,6 +249,14 @@ export const addChannelMember = async (channelId: string, userId: string): Promi
 
 export const deleteChannel = async (channelId: string): Promise<void> => {
   await deleteDoc(doc(db, 'channels', channelId));
+};
+
+export const updateChannel = async (
+  channelId: string,
+  updates: { name?: string; description?: string; isPrivate?: boolean }
+): Promise<void> => {
+  const channelRef = doc(db, 'channels', channelId);
+  await updateDoc(channelRef, updates);
 };
 
 // ============================================
@@ -523,4 +552,78 @@ export const fixWorkspaceOwnership = async (workspaceId: string, newOwnerId: str
     ownerId: newOwnerId,
     members: arrayUnion(newOwnerId),
   });
+};
+
+
+// ============================================
+// DIRECT MESSAGE OPERATIONS
+// ============================================
+
+export const createOrGetDM = async (userId1: string, userId2: string): Promise<string> => {
+  // Check if DM already exists
+  const participants = [userId1, userId2].sort(); // Sort to ensure consistent order
+  const q = query(
+    collection(db, "directMessages"),
+    where("participants", "==", participants)
+  );
+
+  const snapshot = await getDocs(q);
+  if (!snapshot.empty) {
+    return snapshot.docs[0].id;
+  }
+
+  // Create new DM
+  const dmRef = await addDoc(collection(db, "directMessages"), {
+    participants,
+    updatedAt: serverTimestamp(),
+  });
+
+  return dmRef.id;
+};
+
+export const sendDMMessage = async (
+  dmId: string,
+  userId: string,
+  content: string,
+  senderName?: string
+): Promise<string> => {
+  const messageRef = await addDoc(collection(db, "messages"), {
+    channelId: dmId, // We reuse channelId field for DM id
+    userId,
+    content,
+    createdAt: serverTimestamp(),
+    reactions: [],
+    threadId: null,
+  });
+
+  // Update DMs last activity
+  await updateDoc(doc(db, "directMessages", dmId), {
+    updatedAt: serverTimestamp(),
+  });
+
+  // Send notification to the other user
+  try {
+    const dmDoc = await getDoc(doc(db, "directMessages", dmId));
+    if (dmDoc.exists()) {
+      const participants = dmDoc.data().participants as string[];
+      const otherUserId = participants.find(id => id !== userId);
+
+      if (otherUserId && senderName) {
+        // Import notification service dynamically to avoid circular deps
+        const { addNotification } = await import('./notificationService');
+        await addNotification(otherUserId, {
+          type: 'dm',
+          fromUserId: userId,
+          fromUserName: senderName,
+          channelId: dmId,
+          content: content.substring(0, 100), // Preview
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Failed to send notification:', error);
+    // Don't throw - notification failure shouldn't block message sending
+  }
+
+  return messageRef.id;
 };

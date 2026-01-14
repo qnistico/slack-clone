@@ -8,4 +8,18 @@ export default defineConfig({
     react(),
     tailwindcss()
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Vendor chunks - split large dependencies
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-firebase': ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/database'],
+          'vendor-ui': ['lucide-react', 'emoji-picker-react', 'zustand'],
+        },
+      },
+    },
+    // Increase chunk size warning limit since Firebase is large
+    chunkSizeWarningLimit: 600,
+  },
 })

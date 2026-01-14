@@ -32,7 +32,12 @@ export const useAuthStore = create<AuthState>()(
       logout: async () => {
         const user = get().currentUser;
         if (user) {
-          await setUserOffline(user.id);
+          // Try to set offline, but don't block logout if it fails
+          try {
+            await setUserOffline(user.id);
+          } catch (error) {
+            console.error('Failed to set user offline:', error);
+          }
         }
         await firebaseLogout();
         set({ currentUser: null, isAuthenticated: false });

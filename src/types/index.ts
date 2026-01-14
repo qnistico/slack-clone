@@ -5,6 +5,7 @@ export interface User {
   avatar?: string;
   status: 'online' | 'away' | 'offline';
   statusText?: string;
+  lastSeen?: Date;
 }
 
 export interface Workspace {

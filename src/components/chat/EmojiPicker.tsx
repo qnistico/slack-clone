@@ -7,6 +7,7 @@ import { useTheme } from '../../hooks/useTheme';
 interface EmojiPickerProps {
   onEmojiSelect: (emoji: string) => void;
   buttonClassName?: string;
+  customButton?: React.ReactNode;
 }
 
 // Get saved skin tone from localStorage or default to NEUTRAL
@@ -15,7 +16,7 @@ const getSavedSkinTone = (): SkinTones => {
   return saved ? (parseInt(saved) as unknown as SkinTones) : SkinTones.NEUTRAL;
 };
 
-export default function EmojiPicker({ onEmojiSelect, buttonClassName }: EmojiPickerProps) {
+export default function EmojiPicker({ onEmojiSelect, buttonClassName, customButton }: EmojiPickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [skinTone, setSkinTone] = useState<SkinTones>(getSavedSkinTone);
   const pickerRef = useRef<HTMLDivElement>(null);
@@ -56,21 +57,23 @@ export default function EmojiPicker({ onEmojiSelect, buttonClassName }: EmojiPic
         className={buttonClassName || 'p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition'}
         title="Add emoji"
       >
-        <Smile size={20} className="text-gray-600 dark:text-gray-400" />
+        {customButton || <Smile size={20} className="text-gray-600 dark:text-gray-400" />}
       </button>
 
       {isOpen && (
-        <div className="absolute bottom-full right-0 mb-2 z-50">
-          <EmojiPickerReact
-            onEmojiClick={handleEmojiClick}
-            onSkinToneChange={handleSkinToneChange}
-            theme={theme === 'dark' ? Theme.DARK : Theme.LIGHT}
-            skinTonesDisabled={false}
-            defaultSkinTone={skinTone}
-            searchDisabled={false}
-            width={350}
-            height={400}
-          />
+        <div className="absolute bottom-full right-0 mb-2 z-50" style={{ zIndex: 9999 }}>
+          <div style={{ position: 'relative', zIndex: 9999 }}>
+            <EmojiPickerReact
+              onEmojiClick={handleEmojiClick}
+              onSkinToneChange={handleSkinToneChange}
+              theme={theme === 'dark' ? Theme.DARK : Theme.LIGHT}
+              skinTonesDisabled={false}
+              defaultSkinTone={skinTone}
+              searchDisabled={false}
+              width={350}
+              height={400}
+            />
+          </div>
         </div>
       )}
     </div>

@@ -20,4 +20,124 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+
+  /* Fix emoji picker skin tone selector visibility */
+  aside.EmojiPickerReact li.epr-skin-tones {
+    z-index: 10000 !important;
+    position: relative !important;
+  }
+
+  aside.EmojiPickerReact .epr-skin-tone-select {
+    z-index: 10000 !important;
+    position: relative !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+
+  /* Ensure skin tone popup is visible */
+  aside.EmojiPickerReact .epr-skin-tones-list {
+    z-index: 10001 !important;
+    position: absolute !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    background-color: white !important;
+  }
+
+  /* Dark mode skin tone popup */
+  aside.EmojiPickerReact.epr-dark-theme .epr-skin-tones-list {
+    background-color: rgb(31, 41, 55) !important;
+  }
+}
+
+/* Reaction animations */
+@keyframes reaction-pop {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes reaction-bounce {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+}
+
+@keyframes emoji-wiggle {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-8deg);
+  }
+  75% {
+    transform: rotate(8deg);
+  }
+}
+
+.reaction-animate {
+  animation: reaction-pop 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.reaction-btn:active .reaction-emoji {
+  animation: reaction-bounce 0.2s ease-in-out;
+}
+
+.reaction-btn:hover .reaction-emoji {
+  animation: emoji-wiggle 0.4s ease-in-out;
+}
+
+/* Skeleton loading animation */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(229, 231, 235, 0.8) 25%,
+    rgba(243, 244, 246, 1) 50%,
+    rgba(229, 231, 235, 0.8) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+.dark .skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(55, 65, 81, 0.8) 25%,
+    rgba(75, 85, 99, 1) 50%,
+    rgba(55, 65, 81, 0.8) 75%
+  );
+  background-size: 200% 100%;
+}
+
+/* Presence pulse animation */
+@keyframes presence-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.presence-online {
+  animation: presence-pulse 2s ease-in-out infinite;
 }

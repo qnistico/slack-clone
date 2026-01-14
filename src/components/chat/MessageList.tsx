@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Smile, MessageSquare, MoreVertical, Pencil, Trash2, ArrowDown } from 'lucide-react';
 import type { Message, User } from '../../types';
 import { getUserAvatar } from '../../utils/avatar';
+import { formatMessageContent } from '../../utils/messageFormatter';
 import EmojiPicker from './EmojiPicker';
 
 interface MessageListProps {
@@ -30,6 +31,21 @@ export default function MessageList({
   const [showMoreMenu, setShowMoreMenu] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+
+  // Close more menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(event.target as Node)) {
+        setShowMoreMenu(null);
+      }
+    };
+
+    if (showMoreMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showMoreMenu]);
 
   const getUserById = (userId: string) => {
     return users.find((u) => u.id === userId);
@@ -114,29 +130,51 @@ export default function MessageList({
                   {formatTime(message.createdAt)}
                 </span>
               </div>
-              <p className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words">
-                {message.content}
-              </p>
+              <div className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words">
+                {formatMessageContent(message.content)}
+              </div>
               {message.reactions.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {message.reactions.map((reaction) => (
-                    <button
-                      key={reaction.emoji}
-                      onClick={() => onReactionClick?.(message.id, reaction.emoji)}
-                      className="flex items-center gap-1 px-2 py-1 bg-purple-100 rounded-full text-sm hover:bg-purple-200 transition border border-purple-200 hover:border-purple-300"
-                    >
-                      <span>{reaction.emoji}</span>
-                      <span className="text-purple-900 font-medium text-xs">
-                        {reaction.count}
-                      </span>
-                    </button>
-                  ))}
-                  <button
-                    onClick={() => onReactionClick?.(message.id, '')}
-                    className="flex items-center gap-1 px-2 py-1 border border-gray-300 rounded-full text-sm hover:bg-gray-100 transition"
-                  >
-                    <Smile size={14} className="text-gray-600" />
-                  </button>
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {message.reactions.map((reaction) => {
+                    const hasReacted = currentUserId && reaction.userIds?.includes(currentUserId);
+                    const reactionUsers = reaction.userIds
+                      ?.map(id => users.find(u => u.id === id)?.name)
+                      .filter(Boolean)
+                      .slice(0, 3);
+                    const remainingCount = (reaction.userIds?.length || 0) - 3;
+                    const tooltipText = reactionUsers?.length
+                      ? reactionUsers.join(', ') + (remainingCount > 0 ? ` and ${remainingCount} more` : '')
+                      : 'React';
+
+                    return (
+                      <button
+                        key={reaction.emoji}
+                        onClick={() => onReactionClick?.(message.id, reaction.emoji)}
+                        className={`reaction-btn group/reaction flex items-center gap-1 px-2 py-0.5 rounded-full text-sm transition-all duration-200 ${
+                          hasReacted
+                            ? 'bg-purple-100 dark:bg-purple-900/40 border-2 border-purple-400 dark:border-purple-500 hover:bg-purple-200 dark:hover:bg-purple-900/60'
+                            : 'bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
+                        }`}
+                        title={tooltipText}
+                      >
+                        <span className="reaction-emoji text-base leading-none">{reaction.emoji}</span>
+                        <span className={`font-medium text-xs ${
+                          hasReacted
+                            ? 'text-purple-700 dark:text-purple-300'
+                            : 'text-gray-600 dark:text-gray-300'
+                        }`}>
+                          {reaction.count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                  <EmojiPicker
+                    onEmojiSelect={(emoji) => onReactionClick?.(message.id, emoji)}
+                    buttonClassName="flex items-center gap-1 px-2 py-0.5 border border-dashed border-gray-300 dark:border-gray-600 rounded-full text-sm hover:bg-gray-100 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 transition-all duration-200"
+                    customButton={
+                      <Smile size={14} className="text-gray-400 dark:text-gray-500" />
+                    }
+                  />
                 </div>
               )}
             </div>
@@ -179,7 +217,7 @@ export default function MessageList({
                     </button>
                   </>
                 )}
-                <div className="relative">
+                <div className="relative" ref={showMoreMenu === message.id ? moreMenuRef : undefined}>
                   <button
                     onClick={() => setShowMoreMenu(showMoreMenu === message.id ? null : message.id)}
                     className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition"
