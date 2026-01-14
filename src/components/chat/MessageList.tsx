@@ -192,6 +192,7 @@ export default function MessageList({
                     customButton={
                       <Smile size={14} className="text-gray-400 dark:text-gray-500" />
                     }
+                    align="right"
                   />
                 </div>
               )}

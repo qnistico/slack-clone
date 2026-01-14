@@ -6,7 +6,7 @@ import ThemeToggle from './ThemeToggle';
 import DMsPanel from '../panels/DMsPanel';
 import ActivityPanel from '../panels/ActivityPanel';
 import IncomingCallNotification from '../call/IncomingCallNotification';
-import { subscribeToIncomingCalls, webrtcService } from '../../services/webrtcService';
+import { subscribeToIncomingCalls, webrtcService, cleanupOldCalls } from '../../services/webrtcService';
 import { subscribeToUnreadNotifications } from '../../services/notificationService';
 import type { CallData } from '../../services/webrtcService';
 import type { UnreadNotification } from '../../services/notificationService';
@@ -52,21 +52,21 @@ export default function MiniNavbar({ activeItem = 'home' }: MiniNavbarProps) {
     return () => unsubscribe();
   }, [currentUser]);
 
+  // Clean up old calls on mount (once per session)
+  useEffect(() => {
+    cleanupOldCalls().catch(console.error);
+  }, []);
+
   // Subscribe to incoming calls globally
   useEffect(() => {
     if (!currentUser) return;
-
-    console.log('Setting up incoming call subscription for user:', currentUser.id);
 
     const unsubscribe = subscribeToIncomingCalls(
       currentUser.id,
       // Handle incoming calls
       (callId, callData) => {
-        console.log('Incoming call received:', { callId, callData });
-
         // Prevent processing the same call multiple times
         if (processedCallIds.has(callId)) {
-          console.log('Call already processed, skipping:', callId);
           return;
         }
 
@@ -75,10 +75,8 @@ export default function MiniNavbar({ activeItem = 'home' }: MiniNavbarProps) {
       },
       // Handle call status changes (to dismiss notification when call ends)
       (callId, status) => {
-        console.log('Call status changed in MiniNavbar:', callId, status);
         // If the call that's currently showing as incoming has ended/declined/accepted, dismiss it
         if (incomingCall?.callId === callId && status !== 'ringing') {
-          console.log('Dismissing incoming call notification due to status change:', status);
           setIncomingCall(null);
         }
       }

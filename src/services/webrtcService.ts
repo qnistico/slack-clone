@@ -399,38 +399,25 @@ export function subscribeToIncomingCalls(
   onIncomingCall: (callId: string, callData: CallData) => void,
   onCallStatusChanged?: (callId: string, status: CallData['status']) => void
 ): () => void {
-  console.log('Setting up call subscription for user:', userId);
   const callsRef = ref(realtimeDb, 'calls');
 
   const unsubscribe = onValue(callsRef, (snapshot) => {
     const calls = snapshot.val() as Record<string, CallData> | null;
-    console.log('Calls snapshot received:', calls ? Object.keys(calls).length : 0, 'calls');
 
     if (calls) {
       for (const [callId, callData] of Object.entries(calls)) {
-        console.log('Checking call:', callId, {
-          calleeId: callData.calleeId,
-          userId,
-          status: callData.status,
-          createdAt: callData.createdAt,
-          age: Date.now() - callData.createdAt
-        });
-
         // Check if this call is for us (we are the callee)
         // Important: also make sure we are NOT the caller (prevent caller from seeing incoming notification)
         if (callData.calleeId === userId && callData.callerId !== userId) {
           // Only consider recent calls (within last 30 seconds)
           if (Date.now() - callData.createdAt < 30000) {
             if (callData.status === 'ringing') {
-              console.log('Incoming call detected! Notifying...');
+              console.log('Incoming call detected:', callId);
               onIncomingCall(callId, callData);
             } else if (onCallStatusChanged) {
               // Notify about status changes (ended, declined, accepted)
-              console.log('Call status changed:', callId, callData.status);
               onCallStatusChanged(callId, callData.status);
             }
-          } else {
-            console.log('Call too old, ignoring');
           }
         }
       }

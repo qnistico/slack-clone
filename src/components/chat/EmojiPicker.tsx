@@ -5,12 +5,14 @@ import { Smile } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 
 type PickerPosition = 'above' | 'below';
+type PickerAlign = 'left' | 'right';
 
 interface EmojiPickerProps {
   onEmojiSelect: (emoji: string) => void;
   buttonClassName?: string;
   customButton?: React.ReactNode;
   position?: PickerPosition;
+  align?: PickerAlign;
   onOpenChange?: (isOpen: boolean) => void;
 }
 
@@ -32,6 +34,7 @@ export default function EmojiPicker({
   buttonClassName,
   customButton,
   position = 'above',
+  align = 'left',
   onOpenChange
 }: EmojiPickerProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -106,12 +109,9 @@ export default function EmojiPicker({
   const handleEmojiClick = (emojiData: EmojiClickData) => {
     // Prevent double-triggering (which would toggle the reaction off)
     if (isProcessingRef.current) {
-      console.log('EmojiPicker: Ignoring duplicate click');
       return;
     }
     isProcessingRef.current = true;
-
-    console.log('EmojiPicker: Processing emoji click:', emojiData.emoji);
 
     // Call onEmojiSelect
     onEmojiSelect(emojiData.emoji);
@@ -137,6 +137,9 @@ export default function EmojiPicker({
     ? 'bottom-full mb-2'
     : 'top-full mt-2';
 
+  // align='right' means picker opens to the right (left-0), align='left' means picker opens to the left (right-0)
+  const alignStyles = align === 'right' ? 'left-0' : 'right-0';
+
   return (
     <div className="relative" ref={pickerRef}>
       <button
@@ -150,7 +153,7 @@ export default function EmojiPicker({
       </button>
 
       {isOpen && (
-        <div className={`absolute ${positionStyles} right-0 z-50`} style={{ zIndex: 9999 }}>
+        <div className={`absolute ${positionStyles} ${alignStyles} z-50`} style={{ zIndex: 9999 }}>
           <div style={{ position: 'relative', zIndex: 9999 }}>
             <EmojiPickerReact
               onEmojiClick={handleEmojiClick}

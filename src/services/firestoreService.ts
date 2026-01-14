@@ -306,11 +306,8 @@ export const addReaction = async (
 
   // If there's already a pending operation for this exact reaction, skip
   if (pendingReactions.has(operationKey)) {
-    console.log('addReaction: Skipping duplicate operation:', operationKey);
     return pendingReactions.get(operationKey);
   }
-
-  console.log('addReaction called:', { messageId, emoji, userId });
 
   const operation = (async () => {
     try {
@@ -321,17 +318,12 @@ export const addReaction = async (
         const reactions: Reaction[] = messageSnap.data().reactions || [];
         const existingReaction = reactions.find((r) => r.emoji === emoji);
 
-        console.log('addReaction: Current reactions:', reactions);
-        console.log('addReaction: Existing reaction for emoji:', existingReaction);
-
         if (existingReaction) {
           if (!existingReaction.userIds.includes(userId)) {
-            console.log('addReaction: Adding user to existing reaction');
             existingReaction.userIds.push(userId);
             existingReaction.count = existingReaction.userIds.length;
           } else {
             // Remove user from reaction
-            console.log('addReaction: Removing user from existing reaction');
             existingReaction.userIds = existingReaction.userIds.filter((id) => id !== userId);
             existingReaction.count = existingReaction.userIds.length;
           }
@@ -339,13 +331,10 @@ export const addReaction = async (
           // Filter out reactions with no users
           const updatedReactions = reactions.filter((r) => r.userIds.length > 0);
 
-          console.log('addReaction: Updated reactions:', updatedReactions);
-
           await updateDoc(messageRef, {
             reactions: updatedReactions,
           });
         } else {
-          console.log('addReaction: Creating new reaction');
           await updateDoc(messageRef, {
             reactions: [
               ...reactions,
