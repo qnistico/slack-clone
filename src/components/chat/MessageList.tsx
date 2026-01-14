@@ -27,17 +27,19 @@ export default function MessageList({
   currentUserId,
 }: MessageListProps) {
   const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
+  const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
 
-  // Close more menu when clicking outside
+  // Close more menu when clicking outside and clear active state
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (moreMenuRef.current && !moreMenuRef.current.contains(event.target as Node)) {
         setShowMoreMenu(null);
+        setActiveMessageId(null);
       }
     };
 
@@ -46,6 +48,15 @@ export default function MessageList({
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [showMoreMenu]);
+
+  // Handle emoji picker state changes
+  const handleEmojiPickerChange = (messageId: string, isOpen: boolean) => {
+    if (isOpen) {
+      setActiveMessageId(messageId);
+    } else {
+      setActiveMessageId(null);
+    }
+  };
 
   const getUserById = (userId: string) => {
     return users.find((u) => u.id === userId);
@@ -99,13 +110,20 @@ export default function MessageList({
       {messages.map((message) => {
         const user = getUserById(message.userId);
         const isHovered = hoveredMessageId === message.id;
+        const isActive = activeMessageId === message.id;
+        const shouldShowActionBar = isHovered || isActive;
 
         return (
           <div
             key={message.id}
             className="group relative flex gap-3 hover:bg-gray-50 dark:hover:bg-gray-800 p-2 rounded transition"
             onMouseEnter={() => setHoveredMessageId(message.id)}
-            onMouseLeave={() => setHoveredMessageId(null)}
+            onMouseLeave={() => {
+              // Only clear hover if this message is not active (picker/menu open)
+              if (!isActive) {
+                setHoveredMessageId(null);
+              }
+            }}
           >
             <button
               onClick={() => onUserClick?.(message.userId)}
@@ -180,12 +198,13 @@ export default function MessageList({
             </div>
 
             {/* Hover Actions */}
-            {isHovered && (
+            {shouldShowActionBar && (
               <div className="absolute top-0 right-2 flex items-center gap-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-1 z-10">
                 <div className="relative">
                   <EmojiPicker
                     onEmojiSelect={(emoji) => onReactionClick?.(message.id, emoji)}
                     buttonClassName="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition"
+                    onOpenChange={(isOpen) => handleEmojiPickerChange(message.id, isOpen)}
                   />
                 </div>
                 <button
@@ -219,7 +238,11 @@ export default function MessageList({
                 )}
                 <div className="relative" ref={showMoreMenu === message.id ? moreMenuRef : undefined}>
                   <button
-                    onClick={() => setShowMoreMenu(showMoreMenu === message.id ? null : message.id)}
+                    onClick={() => {
+                      const isOpening = showMoreMenu !== message.id;
+                      setShowMoreMenu(isOpening ? message.id : null);
+                      setActiveMessageId(isOpening ? message.id : null);
+                    }}
                     className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition"
                     title="More actions"
                   >

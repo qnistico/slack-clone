@@ -22,20 +22,37 @@
   }
 
   /* Fix emoji picker skin tone selector visibility */
-  aside.EmojiPickerReact li.epr-skin-tones {
+  aside.EmojiPickerReact li.epr-skin-tones,
+  .EmojiPickerReact li.epr-skin-tones {
     z-index: 10000 !important;
     position: relative !important;
   }
 
-  aside.EmojiPickerReact .epr-skin-tone-select {
+  aside.EmojiPickerReact .epr-skin-tone-select,
+  .EmojiPickerReact .epr-skin-tone-select {
     z-index: 10000 !important;
     position: relative !important;
     opacity: 1 !important;
     visibility: visible !important;
   }
 
+  /* Ensure skin tone popup/dropdown is visible on first open */
+  aside.EmojiPickerReact .epr-skin-tones,
+  .EmojiPickerReact .epr-skin-tones {
+    z-index: 10001 !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+
+  aside.EmojiPickerReact .epr-btn.epr-active,
+  .EmojiPickerReact .epr-btn.epr-active {
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+
   /* Ensure skin tone popup is visible */
-  aside.EmojiPickerReact .epr-skin-tones-list {
+  aside.EmojiPickerReact .epr-skin-tones-list,
+  .EmojiPickerReact .epr-skin-tones-list {
     z-index: 10001 !important;
     position: absolute !important;
     opacity: 1 !important;
@@ -44,8 +61,34 @@
   }
 
   /* Dark mode skin tone popup */
-  aside.EmojiPickerReact.epr-dark-theme .epr-skin-tones-list {
+  aside.EmojiPickerReact.epr-dark-theme .epr-skin-tones-list,
+  .EmojiPickerReact.epr-dark-theme .epr-skin-tones-list {
     background-color: rgb(31, 41, 55) !important;
+  }
+
+  /* Fix skin tone selector button visibility - critical fix */
+  .EmojiPickerReact .epr-header .epr-skin-tones button,
+  aside.EmojiPickerReact .epr-header .epr-skin-tones button,
+  .EmojiPickerReact .epr-skin-tones > button,
+  aside.EmojiPickerReact .epr-skin-tones > button {
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    display: inline-flex !important;
+  }
+
+  /* Ensure the skin tone container is properly positioned */
+  .EmojiPickerReact .epr-header,
+  aside.EmojiPickerReact .epr-header {
+    position: relative !important;
+    z-index: 1 !important;
+  }
+
+  /* Fix for skin tone picker initial render */
+  .EmojiPickerReact .epr-skin-tone-picker,
+  aside.EmojiPickerReact .epr-skin-tone-picker {
+    opacity: 1 !important;
+    visibility: visible !important;
   }
 }
 

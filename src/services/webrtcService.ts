@@ -396,7 +396,8 @@ export const webrtcService = new WebRTCService();
  */
 export function subscribeToIncomingCalls(
   userId: string,
-  onIncomingCall: (callId: string, callData: CallData) => void
+  onIncomingCall: (callId: string, callData: CallData) => void,
+  onCallStatusChanged?: (callId: string, status: CallData['status']) => void
 ): () => void {
   console.log('Setting up call subscription for user:', userId);
   const callsRef = ref(realtimeDb, 'calls');
@@ -415,13 +416,19 @@ export function subscribeToIncomingCalls(
           age: Date.now() - callData.createdAt
         });
 
-        // Check if this call is for us (we are the callee) and is ringing
+        // Check if this call is for us (we are the callee)
         // Important: also make sure we are NOT the caller (prevent caller from seeing incoming notification)
-        if (callData.calleeId === userId && callData.callerId !== userId && callData.status === 'ringing') {
-          // Only notify for recent calls (within last 30 seconds)
+        if (callData.calleeId === userId && callData.callerId !== userId) {
+          // Only consider recent calls (within last 30 seconds)
           if (Date.now() - callData.createdAt < 30000) {
-            console.log('Incoming call detected! Notifying...');
-            onIncomingCall(callId, callData);
+            if (callData.status === 'ringing') {
+              console.log('Incoming call detected! Notifying...');
+              onIncomingCall(callId, callData);
+            } else if (onCallStatusChanged) {
+              // Notify about status changes (ended, declined, accepted)
+              console.log('Call status changed:', callId, callData.status);
+              onCallStatusChanged(callId, callData.status);
+            }
           } else {
             console.log('Call too old, ignoring');
           }

@@ -17,7 +17,6 @@ import CallModal from '../components/call/CallModal';
 import { getUserById, sendDMMessage, updateMessage, deleteMessage as deleteMessageFromDb } from '../services/firestoreService';
 import { getUserAvatar } from '../utils/avatar';
 import { MessageListSkeleton } from '../components/common/Skeleton';
-import { webrtcService } from '../services/webrtcService';
 import type { CallData } from '../services/webrtcService';
 import type { User, Channel } from '../types/index';
 
@@ -127,6 +126,8 @@ export default function DMPage() {
   // DMPage only handles pending calls from sessionStorage when navigated here after answering
 
   // Check for pending call from sessionStorage (navigated from MiniNavbar answer)
+  const [shouldAutoAnswer, setShouldAutoAnswer] = useState(false);
+
   useEffect(() => {
     if (pendingCallProcessed || !currentUser || !otherUser) return;
 
@@ -140,20 +141,11 @@ export default function DMPage() {
         sessionStorage.removeItem('pendingCall');
         setPendingCallProcessed(true);
 
-        // Set up the call modal and automatically answer
+        // Set up the call modal - it will auto-answer because shouldAutoAnswer is true
         setIncomingCall({ callId, callData });
         setCallType(callData.type);
+        setShouldAutoAnswer(true);
         setIsCallModalOpen(true);
-
-        // Automatically answer the call after a short delay to ensure modal is ready
-        setTimeout(async () => {
-          try {
-            console.log('Auto-answering pending call:', callId);
-            await webrtcService.answerCall(callId);
-          } catch (error) {
-            console.error('Error auto-answering call:', error);
-          }
-        }, 500);
       } catch (error) {
         console.error('Error processing pending call:', error);
         sessionStorage.removeItem('pendingCall');
@@ -399,7 +391,10 @@ export default function DMPage() {
       {/* Call Modal */}
       <CallModal
         isOpen={isCallModalOpen}
-        onClose={() => setIsCallModalOpen(false)}
+        onClose={() => {
+          setIsCallModalOpen(false);
+          setShouldAutoAnswer(false);
+        }}
         callType={callType}
         isIncoming={!!incomingCall}
         callId={incomingCall?.callId}
@@ -409,6 +404,7 @@ export default function DMPage() {
         remoteUserId={otherUser?.id}
         remoteUserName={otherUser?.name}
         remoteUserAvatar={otherUser?.avatar}
+        autoAnswer={shouldAutoAnswer}
       />
 
       {/* Incoming calls are handled globally by MiniNavbar */}

@@ -58,21 +58,34 @@ export default function MiniNavbar({ activeItem = 'home' }: MiniNavbarProps) {
 
     console.log('Setting up incoming call subscription for user:', currentUser.id);
 
-    const unsubscribe = subscribeToIncomingCalls(currentUser.id, (callId, callData) => {
-      console.log('Incoming call received:', { callId, callData });
+    const unsubscribe = subscribeToIncomingCalls(
+      currentUser.id,
+      // Handle incoming calls
+      (callId, callData) => {
+        console.log('Incoming call received:', { callId, callData });
 
-      // Prevent processing the same call multiple times
-      if (processedCallIds.has(callId)) {
-        console.log('Call already processed, skipping:', callId);
-        return;
+        // Prevent processing the same call multiple times
+        if (processedCallIds.has(callId)) {
+          console.log('Call already processed, skipping:', callId);
+          return;
+        }
+
+        setProcessedCallIds(prev => new Set(prev).add(callId));
+        setIncomingCall({ callId, callData });
+      },
+      // Handle call status changes (to dismiss notification when call ends)
+      (callId, status) => {
+        console.log('Call status changed in MiniNavbar:', callId, status);
+        // If the call that's currently showing as incoming has ended/declined/accepted, dismiss it
+        if (incomingCall?.callId === callId && status !== 'ringing') {
+          console.log('Dismissing incoming call notification due to status change:', status);
+          setIncomingCall(null);
+        }
       }
-
-      setProcessedCallIds(prev => new Set(prev).add(callId));
-      setIncomingCall({ callId, callData });
-    });
+    );
 
     return () => unsubscribe();
-  }, [currentUser, processedCallIds]);
+  }, [currentUser, processedCallIds, incomingCall?.callId]);
 
   const handleAnswerCall = async () => {
     if (incomingCall) {

@@ -17,6 +17,8 @@ interface CallModalProps {
   remoteUserId?: string;
   remoteUserName?: string;
   remoteUserAvatar?: string;
+  // Auto-answer for incoming calls (when navigated from notification)
+  autoAnswer?: boolean;
 }
 
 export default function CallModal({
@@ -31,6 +33,7 @@ export default function CallModal({
   remoteUserId,
   remoteUserName,
   remoteUserAvatar,
+  autoAnswer = false,
 }: CallModalProps) {
   const [callStatus, setCallStatus] = useState<CallData['status']>(
     isIncoming ? 'ringing' : 'ringing'
@@ -39,6 +42,7 @@ export default function CallModal({
   const [isAudioEnabled, setIsAudioEnabled] = useState(true);
   const [callDuration, setCallDuration] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [callAnswered, setCallAnswered] = useState(false);
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
@@ -51,29 +55,44 @@ export default function CallModal({
   useEffect(() => {
     if (!isOpen) return;
 
+    // Track if this effect is still active (for cleanup)
+    let isActive = true;
+
     // Set up WebRTC callbacks
     webrtcService.setCallbacks({
       onLocalStreamReady: (stream) => {
-        if (localVideoRef.current) {
+        console.log('Local stream ready');
+        if (localVideoRef.current && isActive) {
           localVideoRef.current.srcObject = stream;
         }
       },
       onRemoteStreamReady: (stream) => {
-        if (remoteVideoRef.current) {
+        console.log('Remote stream ready');
+        if (remoteVideoRef.current && isActive) {
           remoteVideoRef.current.srcObject = stream;
         }
       },
       onCallStatusChange: (status) => {
+        if (!isActive) return;
+        console.log('Call status changed:', status);
         setCallStatus(status);
         if (status === 'accepted') {
+          setCallAnswered(true);
           // Start duration timer
-          durationIntervalRef.current = setInterval(() => {
-            setCallDuration((prev) => prev + 1);
-          }, 1000);
+          if (!durationIntervalRef.current) {
+            durationIntervalRef.current = setInterval(() => {
+              setCallDuration((prev) => prev + 1);
+            }, 1000);
+          }
         }
       },
       onCallEnded: () => {
-        handleClose();
+        // Only close if we're still active and the call was properly ended
+        // (not just a stale status from Firebase)
+        if (isActive) {
+          console.log('Call ended callback received');
+          handleClose();
+        }
       },
     });
 
@@ -82,12 +101,34 @@ export default function CallModal({
       startOutgoingCall();
     }
 
+    // Auto-answer incoming call if requested (from notification click)
+    // Use a longer delay to ensure modal is fully mounted and callbacks are ready
+    if (isIncoming && autoAnswer && callId) {
+      console.log('Auto-answering call from notification:', callId);
+      const answerCall = async () => {
+        if (!isActive) return;
+        try {
+          console.log('Starting auto-answer process...');
+          setCallAnswered(true);
+          await webrtcService.answerCall(callId);
+          console.log('Auto-answer successful');
+        } catch (err) {
+          console.error('Auto-answer failed:', err);
+          setCallAnswered(false);
+          setError(err instanceof Error ? err.message : 'Failed to answer call');
+        }
+      };
+      // Longer delay to ensure everything is ready
+      setTimeout(answerCall, 500);
+    }
+
     return () => {
+      isActive = false;
       if (durationIntervalRef.current) {
         clearInterval(durationIntervalRef.current);
       }
     };
-  }, [isOpen]);
+  }, [isOpen, autoAnswer, callId, isIncoming]);
 
   const startOutgoingCall = async () => {
     try {
@@ -106,8 +147,13 @@ export default function CallModal({
   const handleAnswer = async () => {
     if (!callId) return;
     try {
+      console.log('Answering call:', callId);
+      setCallAnswered(true);
       await webrtcService.answerCall(callId);
+      console.log('Call answered successfully');
     } catch (err) {
+      console.error('Error answering call:', err);
+      setCallAnswered(false);
       setError(err instanceof Error ? err.message : 'Failed to answer call');
     }
   };
@@ -201,7 +247,8 @@ export default function CallModal({
               />
               <h2 className="text-2xl font-bold mb-2">{displayName}</h2>
               <p className="text-gray-400 text-lg">
-                {callStatus === 'ringing' && isIncoming && 'Incoming call...'}
+                {callStatus === 'ringing' && isIncoming && !callAnswered && 'Incoming call...'}
+                {callStatus === 'ringing' && isIncoming && callAnswered && 'Connecting...'}
                 {callStatus === 'ringing' && !isIncoming && 'Calling...'}
                 {callStatus === 'accepted' && formatDuration(callDuration)}
                 {callStatus === 'declined' && 'Call declined'}
@@ -244,8 +291,8 @@ export default function CallModal({
 
         {/* Controls */}
         <div className="p-6 flex items-center justify-center gap-4 bg-gray-800/80">
-          {/* Incoming call - show answer/decline */}
-          {isIncoming && callStatus === 'ringing' ? (
+          {/* Incoming call - show answer/decline only if not yet answered */}
+          {isIncoming && callStatus === 'ringing' && !callAnswered ? (
             <>
               <button
                 onClick={handleDecline}

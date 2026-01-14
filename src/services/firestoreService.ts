@@ -293,47 +293,81 @@ export const deleteMessage = async (messageId: string): Promise<void> => {
   await deleteDoc(doc(db, 'messages', messageId));
 };
 
+// Track in-flight reaction operations to prevent race conditions
+const pendingReactions = new Map<string, Promise<void>>();
+
 export const addReaction = async (
   messageId: string,
   emoji: string,
   userId: string
 ): Promise<void> => {
-  const messageRef = doc(db, 'messages', messageId);
-  const messageSnap = await getDoc(messageRef);
+  // Create a unique key for this reaction operation
+  const operationKey = `${messageId}-${emoji}-${userId}`;
 
-  if (messageSnap.exists()) {
-    const reactions: Reaction[] = messageSnap.data().reactions || [];
-    const existingReaction = reactions.find((r) => r.emoji === emoji);
-
-    if (existingReaction) {
-      if (!existingReaction.userIds.includes(userId)) {
-        existingReaction.userIds.push(userId);
-        existingReaction.count = existingReaction.userIds.length;
-      } else {
-        // Remove user from reaction
-        existingReaction.userIds = existingReaction.userIds.filter((id) => id !== userId);
-        existingReaction.count = existingReaction.userIds.length;
-      }
-
-      // Filter out reactions with no users
-      const updatedReactions = reactions.filter((r) => r.userIds.length > 0);
-
-      await updateDoc(messageRef, {
-        reactions: updatedReactions,
-      });
-    } else {
-      await updateDoc(messageRef, {
-        reactions: [
-          ...reactions,
-          {
-            emoji,
-            userIds: [userId],
-            count: 1,
-          },
-        ],
-      });
-    }
+  // If there's already a pending operation for this exact reaction, skip
+  if (pendingReactions.has(operationKey)) {
+    console.log('addReaction: Skipping duplicate operation:', operationKey);
+    return pendingReactions.get(operationKey);
   }
+
+  console.log('addReaction called:', { messageId, emoji, userId });
+
+  const operation = (async () => {
+    try {
+      const messageRef = doc(db, 'messages', messageId);
+      const messageSnap = await getDoc(messageRef);
+
+      if (messageSnap.exists()) {
+        const reactions: Reaction[] = messageSnap.data().reactions || [];
+        const existingReaction = reactions.find((r) => r.emoji === emoji);
+
+        console.log('addReaction: Current reactions:', reactions);
+        console.log('addReaction: Existing reaction for emoji:', existingReaction);
+
+        if (existingReaction) {
+          if (!existingReaction.userIds.includes(userId)) {
+            console.log('addReaction: Adding user to existing reaction');
+            existingReaction.userIds.push(userId);
+            existingReaction.count = existingReaction.userIds.length;
+          } else {
+            // Remove user from reaction
+            console.log('addReaction: Removing user from existing reaction');
+            existingReaction.userIds = existingReaction.userIds.filter((id) => id !== userId);
+            existingReaction.count = existingReaction.userIds.length;
+          }
+
+          // Filter out reactions with no users
+          const updatedReactions = reactions.filter((r) => r.userIds.length > 0);
+
+          console.log('addReaction: Updated reactions:', updatedReactions);
+
+          await updateDoc(messageRef, {
+            reactions: updatedReactions,
+          });
+        } else {
+          console.log('addReaction: Creating new reaction');
+          await updateDoc(messageRef, {
+            reactions: [
+              ...reactions,
+              {
+                emoji,
+                userIds: [userId],
+                count: 1,
+              },
+            ],
+          });
+        }
+      }
+    } finally {
+      // Clean up the pending operation after a short delay
+      setTimeout(() => {
+        pendingReactions.delete(operationKey);
+      }, 500);
+    }
+  })();
+
+  pendingReactions.set(operationKey, operation);
+  return operation;
 };
 
 export const subscribeToMessages = (

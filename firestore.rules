@@ -86,8 +86,16 @@ service cloud.firestore {
       allow read: if isSignedIn();
       // Any authenticated user can create messages
       allow create: if isSignedIn() && request.auth.uid == request.resource.data.userId;
-      // Users can update/delete their own messages
-      allow update, delete: if isSignedIn() && request.auth.uid == resource.data.userId;
+      // Users can delete their own messages
+      allow delete: if isSignedIn() && request.auth.uid == resource.data.userId;
+      // Users can update their own messages (edit content)
+      // OR any user can update reactions on any message
+      allow update: if isSignedIn() && (
+        // Owner can update anything on their message
+        request.auth.uid == resource.data.userId ||
+        // Anyone can update only the reactions field
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions'])
+      );
     }
 
     // Workspace invites collection

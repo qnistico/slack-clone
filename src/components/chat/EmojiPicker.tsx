@@ -1,31 +1,93 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import EmojiPickerReact, { Theme, SkinTones } from 'emoji-picker-react';
 import type { EmojiClickData } from 'emoji-picker-react';
 import { Smile } from 'lucide-react';
 import { useTheme } from '../../hooks/useTheme';
 
+type PickerPosition = 'above' | 'below';
+
 interface EmojiPickerProps {
   onEmojiSelect: (emoji: string) => void;
   buttonClassName?: string;
   customButton?: React.ReactNode;
+  position?: PickerPosition;
+  onOpenChange?: (isOpen: boolean) => void;
 }
 
-// Get saved skin tone from localStorage or default to NEUTRAL
+// Valid skin tone values
+const VALID_SKIN_TONES = ['neutral', '1f3fb', '1f3fc', '1f3fd', '1f3fe', '1f3ff'];
+
+// Get saved skin tone from localStorage or default to NEUTRAL (gold/yellow)
 const getSavedSkinTone = (): SkinTones => {
   const saved = localStorage.getItem('emoji-skin-tone');
-  return saved ? (parseInt(saved) as unknown as SkinTones) : SkinTones.NEUTRAL;
+  // Validate that the saved value is a valid skin tone
+  if (saved && VALID_SKIN_TONES.includes(saved)) {
+    return saved as SkinTones;
+  }
+  return SkinTones.NEUTRAL;
 };
 
-export default function EmojiPicker({ onEmojiSelect, buttonClassName, customButton }: EmojiPickerProps) {
+export default function EmojiPicker({
+  onEmojiSelect,
+  buttonClassName,
+  customButton,
+  position = 'above',
+  onOpenChange
+}: EmojiPickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [skinTone, setSkinTone] = useState<SkinTones>(getSavedSkinTone);
   const pickerRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [computedPosition, setComputedPosition] = useState<PickerPosition>(position);
   const { theme } = useTheme();
+  // Ref to store onOpenChange to avoid stale closures
+  const onOpenChangeRef = useRef(onOpenChange);
+  onOpenChangeRef.current = onOpenChange;
+
+  // Sync skin tone from localStorage when picker opens (in case another picker changed it)
+  useEffect(() => {
+    if (isOpen) {
+      const savedTone = getSavedSkinTone();
+      if (savedTone !== skinTone) {
+        setSkinTone(savedTone);
+      }
+    }
+  }, [isOpen]);
+
+  // Calculate position based on viewport when opening
+  const calculatePosition = useCallback(() => {
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      const viewportHeight = window.innerHeight;
+      // If button is in upper half of viewport, show picker below
+      // If button is in lower half, show picker above
+      const isInUpperHalf = rect.top < viewportHeight / 2;
+      setComputedPosition(isInUpperHalf ? 'below' : 'above');
+    }
+  }, []);
+
+  // Stable function to update open state
+  const updateOpenState = useCallback((newIsOpen: boolean) => {
+    setIsOpen(newIsOpen);
+    onOpenChangeRef.current?.(newIsOpen);
+  }, []);
+
+  const handleToggle = useCallback(() => {
+    const newIsOpen = !isOpen;
+    if (newIsOpen) {
+      calculatePosition();
+    }
+    updateOpenState(newIsOpen);
+  }, [isOpen, calculatePosition, updateOpenState]);
+
+  const handleClose = useCallback(() => {
+    updateOpenState(false);
+  }, [updateOpenState]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (pickerRef.current && !pickerRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
+        handleClose();
       }
     };
 
@@ -36,24 +98,51 @@ export default function EmojiPicker({ onEmojiSelect, buttonClassName, customButt
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isOpen]);
+  }, [isOpen, handleClose]);
+
+  // Ref to prevent double-triggering of emoji selection
+  const isProcessingRef = useRef(false);
 
   const handleEmojiClick = (emojiData: EmojiClickData) => {
+    // Prevent double-triggering (which would toggle the reaction off)
+    if (isProcessingRef.current) {
+      console.log('EmojiPicker: Ignoring duplicate click');
+      return;
+    }
+    isProcessingRef.current = true;
+
+    console.log('EmojiPicker: Processing emoji click:', emojiData.emoji);
+
+    // Call onEmojiSelect
     onEmojiSelect(emojiData.emoji);
-    setIsOpen(false);
+
+    // Close the picker and reset processing flag after a short delay
+    setTimeout(() => {
+      handleClose();
+      // Reset the flag after the picker closes
+      setTimeout(() => {
+        isProcessingRef.current = false;
+      }, 100);
+    }, 50);
   };
 
-  // Handle skin tone change separately
+  // Handle skin tone change - saves to localStorage so all pickers sync
   const handleSkinToneChange = (newSkinTone: SkinTones) => {
     setSkinTone(newSkinTone);
-    localStorage.setItem('emoji-skin-tone', newSkinTone.toString());
+    // SkinTones values are strings like "neutral", "1f3fb", etc.
+    localStorage.setItem('emoji-skin-tone', newSkinTone as string);
   };
+
+  const positionStyles = computedPosition === 'above'
+    ? 'bottom-full mb-2'
+    : 'top-full mt-2';
 
   return (
     <div className="relative" ref={pickerRef}>
       <button
+        ref={buttonRef}
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={handleToggle}
         className={buttonClassName || 'p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition'}
         title="Add emoji"
       >
@@ -61,7 +150,7 @@ export default function EmojiPicker({ onEmojiSelect, buttonClassName, customButt
       </button>
 
       {isOpen && (
-        <div className="absolute bottom-full right-0 mb-2 z-50" style={{ zIndex: 9999 }}>
+        <div className={`absolute ${positionStyles} right-0 z-50`} style={{ zIndex: 9999 }}>
           <div style={{ position: 'relative', zIndex: 9999 }}>
             <EmojiPickerReact
               onEmojiClick={handleEmojiClick}
