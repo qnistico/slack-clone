@@ -62,7 +62,7 @@ export default function HomePage() {
             setShowInvitesModal(true);
           }
         } catch (error) {
-          console.error('Failed to check pending invites:', error);
+          // Silent error handling
         }
       }
     };
@@ -80,7 +80,7 @@ export default function HomePage() {
       setWorkspaceName('');
       setShowCreateModal(false);
     } catch (error) {
-      console.error('Failed to create workspace:', error);
+      // Silent error handling
     } finally {
       setCreating(false);
     }
@@ -103,7 +103,6 @@ export default function HomePage() {
       try {
         await deleteWorkspace(workspaceId);
       } catch (error) {
-        console.error('Failed to delete workspace:', error);
         alert('Failed to delete workspace. Please try again.');
       }
     }
@@ -164,7 +163,7 @@ export default function HomePage() {
                     try {
                       await addWorkspaceMember(DEMO_WORKSPACE_ID, currentUser.id);
                     } catch (error) {
-                      console.log('Already a member or error:', error);
+                      // Silent error handling - already a member or error
                     }
                     navigate(`/workspace/${DEMO_WORKSPACE_ID}`);
                   }

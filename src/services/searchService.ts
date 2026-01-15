@@ -30,28 +30,17 @@ export const searchMessages = async (
   const results: SearchResult[] = [];
   const lowerQuery = searchQuery.toLowerCase();
 
-  console.log('=== SEARCH DEBUG ===');
-  console.log('Search query:', searchQuery);
-  console.log('Workspace ID:', workspaceId);
-  console.log('Workspace members:', workspaceMembers.length, workspaceMembers.map(m => m.name));
-
   if (!workspaceId) {
-    console.error('No workspace ID provided to search');
     return [];
   }
 
   try {
     // 1. Search channels by name first
-    console.log('Searching channels for workspace:', workspaceId);
     const channelsQuery = query(
       collection(db, 'channels'),
       where('workspaceId', '==', workspaceId)
     );
     const channelsSnapshot = await getDocs(channelsQuery);
-    console.log('Channels found:', channelsSnapshot.docs.length);
-    channelsSnapshot.docs.forEach(doc => {
-      console.log('Channel:', doc.id, doc.data().name);
-    });
 
     const channelMap = new Map<string, { name: string; isPrivate: boolean }>();
 
@@ -93,7 +82,6 @@ export const searchMessages = async (
           );
 
           const messagesSnapshot = await getDocs(messagesQuery);
-          console.log('Messages in batch:', messagesSnapshot.docs.length);
 
           messagesSnapshot.docs.forEach((doc) => {
             const data = doc.data();
@@ -111,8 +99,7 @@ export const searchMessages = async (
               });
             }
           });
-        } catch (err) {
-          console.error('Error searching channel messages batch:', err);
+        } catch {
         }
       }
     }
@@ -177,8 +164,7 @@ export const searchMessages = async (
                 });
               }
             });
-          } catch (err) {
-            console.error('Error searching DM messages batch:', err);
+          } catch {
           }
         }
       }
@@ -193,10 +179,8 @@ export const searchMessages = async (
     });
 
     // Limit total results
-    console.log('Total results found:', results.length);
     return results.slice(0, 50);
-  } catch (error) {
-    console.error('Search error:', error);
+  } catch {
     return [];
   }
 };

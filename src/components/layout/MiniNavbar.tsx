@@ -54,7 +54,7 @@ export default function MiniNavbar({ activeItem = 'home' }: MiniNavbarProps) {
 
   // Clean up old calls on mount (once per session)
   useEffect(() => {
-    cleanupOldCalls().catch(console.error);
+    cleanupOldCalls().catch(() => {});
   }, []);
 
   // Subscribe to incoming calls globally
@@ -111,7 +111,7 @@ export default function MiniNavbar({ activeItem = 'home' }: MiniNavbarProps) {
           // Navigate to DM page - the call will be answered there
           navigate(`/workspace/${workspaceId}/dm/${dmId}`);
         } catch (error) {
-          console.error('Error navigating to call:', error);
+          // Silent error handling
         }
       }
       setIncomingCall(null);

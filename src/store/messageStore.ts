@@ -69,7 +69,6 @@ export const useMessageStore = create<MessageState>((set, get) => ({
     try {
       await sendMessage(channelId, userId, content, threadId);
     } catch (error) {
-      console.error('Failed to send message:', error);
       throw error;
     } finally {
       set({ isLoading: false });
@@ -80,7 +79,6 @@ export const useMessageStore = create<MessageState>((set, get) => ({
     try {
       await updateFirestoreMessage(messageId, content);
     } catch (error) {
-      console.error('Failed to update message:', error);
       throw error;
     }
   },
@@ -89,7 +87,6 @@ export const useMessageStore = create<MessageState>((set, get) => ({
     try {
       await deleteFirestoreMessage(messageId);
     } catch (error) {
-      console.error('Failed to delete message:', error);
       throw error;
     }
   },
@@ -98,7 +95,6 @@ export const useMessageStore = create<MessageState>((set, get) => ({
     try {
       await addFirestoreReaction(messageId, emoji, userId);
     } catch (error) {
-      console.error('Failed to add reaction:', error);
       throw error;
     }
   },

@@ -59,30 +59,11 @@ class DemoActivityService {
 
   /**
    * Clear old bot messages from a channel (keep it fresh for new visitors)
+   * Now just calls clearAllDemoBotMessages to avoid needing a composite index
    */
-  async clearOldBotMessages(channelId: string): Promise<void> {
-    try {
-      // Query for messages in this channel from bot users
-      const messagesQuery = query(
-        collection(db, 'messages'),
-        where('channelId', '==', channelId),
-        where('userId', '>=', 'bot-'),
-        where('userId', '<=', 'bot-\uf8ff')
-      );
-
-      const snapshot = await getDocs(messagesQuery);
-
-      // Delete each bot message
-      const deletePromises = snapshot.docs.map(docSnap =>
-        deleteDoc(doc(db, 'messages', docSnap.id))
-      );
-
-      await Promise.all(deletePromises);
-      console.log(`Demo: Cleared ${snapshot.docs.length} old bot messages from channel`);
-    } catch (error) {
-      console.error('Demo: Failed to clear old bot messages:', error);
-      // Continue anyway - this is not critical
-    }
+  async clearOldBotMessages(_channelId: string): Promise<void> {
+    // Use the global clear function instead of channel-specific to avoid index requirement
+    await this.clearAllDemoBotMessages();
   }
 
   /**
@@ -106,9 +87,8 @@ class DemoActivityService {
       );
 
       await Promise.all(deletePromises);
-      console.log(`Demo: Cleared ${snapshot.docs.length} total bot messages from all channels`);
-    } catch (error) {
-      console.error('Demo: Failed to clear all bot messages:', error);
+    } catch {
+      // Silently handle - not critical for demo
     }
   }
 
@@ -121,7 +101,6 @@ class DemoActivityService {
       const { ref, set } = await import('firebase/database');
       const { realtimeDb } = await import('../lib/firebase');
       await set(ref(realtimeDb, `notifications/${userId}`), null);
-      console.log('Demo: Cleared old notifications');
 
       // Clear DM messages from all bot conversations
       for (const bot of DEMO_BOTS) {
@@ -140,13 +119,12 @@ class DemoActivityService {
             deleteDoc(doc(db, 'messages', docSnap.id))
           );
           await Promise.all(deletePromises);
-          console.log(`Demo: Cleared ${snapshot.docs.length} messages from DM with ${bot.name}`);
-        } catch (error) {
-          console.log(`Demo: Could not clear DM with ${bot.name}:`, error);
+        } catch {
+          // Silently handle - not critical
         }
       }
-    } catch (error) {
-      console.error('Demo: Failed to clear notifications:', error);
+    } catch {
+      // Silently handle - not critical
     }
   }
 
@@ -163,10 +141,8 @@ class DemoActivityService {
 
       // Send the message (this auto-triggers notification via firestoreService)
       await sendDMMessage(dmId, bot.id, message, bot.name);
-
-      console.log(`Demo: Sent DM from ${bot.name} to user`);
-    } catch (error) {
-      console.error('Demo: Failed to send bot DM:', error);
+    } catch {
+      // Silently handle - demo continues
     }
   }
 
@@ -179,9 +155,8 @@ class DemoActivityService {
 
     try {
       await sendMessage(channelId, bot.id, message);
-      console.log(`Demo: Sent channel message from ${bot.name}`);
-    } catch (error) {
-      console.error('Demo: Failed to send bot channel message:', error);
+    } catch {
+      // Silently handle - demo continues
     }
   }
 
@@ -209,7 +184,6 @@ class DemoActivityService {
 
     // If already running a sequence, don't start another
     if (this.currentSequenceId) {
-      console.log('Demo: Sequence already running, skipping');
       return;
     }
 
@@ -217,8 +191,6 @@ class DemoActivityService {
 
     // Clear any existing timeouts
     this.clearTimeouts();
-
-    console.log('Demo: Starting activity sequence', sequenceId);
 
     // Clear old bot messages first (makes it feel fresh)
     await this.clearOldBotMessages(channelId);
@@ -235,9 +207,8 @@ class DemoActivityService {
       if (this.currentSequenceId !== sequenceId) return;
       try {
         await setUserTyping(channelId, DEMO_BOTS[0].id, DEMO_BOTS[0].name);
-        console.log('Demo: Sarah typing');
-      } catch (error) {
-        console.log('Demo: Typing indicator failed:', error);
+      } catch {
+        // Silently handle
       }
     }, 3000);
     this.timeouts.push(typing1Timeout);
@@ -247,7 +218,7 @@ class DemoActivityService {
       if (this.currentSequenceId !== sequenceId) return;
       try {
         await removeUserTyping(channelId, DEMO_BOTS[0].id);
-      } catch (error) {
+      } catch {
         // Ignore
       }
       await this.sendBotChannelMessage(sequenceId, channelId, DEMO_BOTS[0], CHANNEL_MESSAGES[0]);
@@ -259,8 +230,7 @@ class DemoActivityService {
       if (this.currentSequenceId !== sequenceId) return;
       try {
         await setUserTyping(channelId, DEMO_BOTS[1].id, DEMO_BOTS[1].name);
-        console.log('Demo: Alex typing');
-      } catch (error) {
+      } catch {
         // Ignore
       }
     }, 8000);
@@ -271,7 +241,7 @@ class DemoActivityService {
       if (this.currentSequenceId !== sequenceId) return;
       try {
         await removeUserTyping(channelId, DEMO_BOTS[1].id);
-      } catch (error) {
+      } catch {
         // Ignore
       }
       await this.sendBotChannelMessage(sequenceId, channelId, DEMO_BOTS[1], CHANNEL_MESSAGES[1]);
@@ -288,7 +258,6 @@ class DemoActivityService {
     const cleanupTimeout = setTimeout(() => {
       if (this.currentSequenceId === sequenceId) {
         this.currentSequenceId = null;
-        console.log('Demo: Sequence complete');
       }
     }, 20000);
     this.timeouts.push(cleanupTimeout);

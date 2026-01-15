@@ -52,7 +52,7 @@ export default function DMsPanel({ isOpen, onClose }: DMsPanelProps) {
         const validMembers = membersData.filter((m): m is User => m !== null);
         setWorkspaceMembers(validMembers);
       } catch (error) {
-        console.error('Failed to fetch workspace members:', error);
+        // Silent error handling
       }
     };
 
@@ -138,7 +138,7 @@ export default function DMsPanel({ isOpen, onClose }: DMsPanelProps) {
 
         setMessageResults(results.slice(0, 20));
       } catch (error) {
-        console.error('Error searching DM messages:', error);
+        // Silent error handling
       } finally {
         setIsSearching(false);
       }
@@ -156,7 +156,7 @@ export default function DMsPanel({ isOpen, onClose }: DMsPanelProps) {
       navigate(`/workspace/${workspaceId}/dm/${dmId}`);
       onClose();
     } catch (error) {
-      console.error('Failed to create DM:', error);
+      // Silent error handling
     }
   };
 

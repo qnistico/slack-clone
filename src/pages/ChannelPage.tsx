@@ -77,12 +77,10 @@ export default function ChannelPage() {
       // Check if current user's name is missing from Firestore
       const userDoc = await getUserById(currentUser.id);
       if (userDoc && !userDoc.name && currentUser.name) {
-        console.log('Fixing user name in Firestore...');
         const { doc: firestoreDoc, setDoc } = await import('firebase/firestore');
         const { db } = await import('../lib/firebase');
         const userRef = firestoreDoc(db, 'users', currentUser.id);
         await setDoc(userRef, { name: currentUser.name }, { merge: true });
-        console.log('User name fixed!');
       }
     };
 
@@ -96,37 +94,26 @@ export default function ChannelPage() {
 
       const currentWorkspace = workspaces.find(w => w.id === workspaceId);
       if (!currentWorkspace) {
-        console.log('Workspace not found:', workspaceId);
         return;
       }
 
       if (!currentWorkspace.members || currentWorkspace.members.length === 0) {
-        console.log('No members in workspace');
         setWorkspaceMembers([]);
         return;
       }
 
       try {
-        console.log('Fetching members for workspace:', currentWorkspace.name);
-        console.log('Workspace owner ID:', currentWorkspace.ownerId);
-        console.log('Member IDs in workspace:', currentWorkspace.members);
-        console.log('Current user ID:', currentUser?.id);
-        console.log('Current user name:', currentUser?.name);
-
         // Add current user to workspace if they're the owner but not in members
         if (currentUser && currentWorkspace.ownerId === currentUser.id && !currentWorkspace.members.includes(currentUser.id)) {
-          console.log('Owner not in members list, adding to workspace...');
           await addWorkspaceMember(workspaceId, currentUser.id);
         }
 
         const membersPromises = currentWorkspace.members.map(memberId => getUserById(memberId));
         const membersData = await Promise.all(membersPromises);
-        console.log('Raw members data from Firestore:', membersData);
         const validMembers = membersData.filter((m): m is User => m !== null);
 
         // Always include current user in the list
         if (currentUser && !validMembers.find(m => m.id === currentUser.id)) {
-          console.log('Adding current user to members list');
           validMembers.push(currentUser);
         }
 
@@ -141,10 +128,9 @@ export default function ChannelPage() {
           validMembers.push(...botUsers);
         }
 
-        console.log('Loaded workspace members:', validMembers.map(m => ({ id: m.id, name: m.name })));
         setWorkspaceMembers(validMembers);
       } catch (error) {
-        console.error('Failed to fetch workspace members:', error);
+        // Silent error handling
       }
     };
 
@@ -165,30 +151,17 @@ export default function ChannelPage() {
   // Auto-join channel if user is not a member
   useEffect(() => {
     const autoJoinChannel = async () => {
-      console.log('Auto-join check:', {
-        hasCurrentUser: !!currentUser,
-        currentUserId: currentUser?.id,
-        hasCurrentChannel: !!currentChannel,
-        channelName: currentChannel?.name,
-        channelMembers: currentChannel?.members,
-        hasChannelId: !!channelId,
-      });
-
       if (!currentUser || !currentChannel || !channelId) {
-        console.log('Auto-join skipped: missing required data');
         return;
       }
 
       const isMember = currentChannel.members?.includes(currentUser.id);
-      console.log('Is user already a member?', isMember);
 
       if (!isMember) {
         try {
-          console.log('Auto-joining channel:', currentChannel.name);
           await addChannelMember(channelId, currentUser.id);
-          console.log('Successfully joined channel');
         } catch (error) {
-          console.error('Failed to auto-join channel:', error);
+          // Silent error handling
         }
       }
     };
@@ -229,7 +202,7 @@ export default function ChannelPage() {
     try {
       await sendNewMessage(channelId, currentUser.id, content);
     } catch (error) {
-      console.error('Failed to send message:', error);
+      // Silent error handling
     }
   };
 
@@ -239,7 +212,7 @@ export default function ChannelPage() {
       try {
         await addReaction(messageId, emoji, currentUser.id);
       } catch (error) {
-        console.error('Failed to add reaction:', error);
+        // Silent error handling
       }
     }
   };
@@ -258,7 +231,7 @@ export default function ChannelPage() {
     try {
       await sendNewMessage(channelId, currentUser.id, content, activeThreadParent.id);
     } catch (error) {
-      console.error('Failed to send thread reply:', error);
+      // Silent error handling
     }
   };
 
@@ -266,19 +239,29 @@ export default function ChannelPage() {
 
   const handleUserClick = async (userId: string) => {
     try {
+      // Check if it's a demo bot user first (they don't exist in Firestore)
+      const demoBot = DEMO_BOTS.find(bot => bot.id === userId);
+      if (demoBot) {
+        const botUser: User = {
+          id: demoBot.id,
+          name: demoBot.name,
+          email: `${demoBot.id}@demo.slack-clone.app`,
+          status: 'online',
+        };
+        setSelectedUser(botUser);
+        setIsProfileModalOpen(true);
+        return;
+      }
+
       const { getUserById } = await import('../services/firestoreService');
       const userData = await getUserById(userId);
-
-      console.log('Clicked user data:', userData);
 
       if (userData) {
         setSelectedUser(userData as User);
         setIsProfileModalOpen(true);
-      } else {
-        console.error('User data not found for ID:', userId);
       }
     } catch (error) {
-      console.error('Failed to fetch user:', error);
+      // Silent error handling
     }
   };
 
@@ -294,7 +277,6 @@ export default function ChannelPage() {
         await deleteChannel(channelId);
         navigate(`/workspace/${workspaceId}`);
       } catch (error) {
-        console.error('Failed to delete channel:', error);
         alert('Failed to delete channel. Please try again.');
       }
     }
@@ -310,7 +292,6 @@ export default function ChannelPage() {
         isPrivate: data.isPrivate,
       });
     } catch (error) {
-      console.error('Failed to update channel:', error);
       alert('Failed to update channel. Please try again.');
     }
   };
@@ -321,7 +302,6 @@ export default function ChannelPage() {
       try {
         await updateMessage(messageId, newContent.trim());
       } catch (error) {
-        console.error('Failed to edit message:', error);
         alert('Failed to edit message. Please try again.');
       }
     }
@@ -331,7 +311,6 @@ export default function ChannelPage() {
     try {
       await deleteMessageFromDb(messageId);
     } catch (error) {
-      console.error('Failed to delete message:', error);
       alert('Failed to delete message. Please try again.');
     }
   };

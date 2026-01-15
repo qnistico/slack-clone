@@ -65,6 +65,12 @@ export default function SignupPage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-blue-50 dark:from-gray-900 dark:to-gray-800">
       <div className="bg-white dark:bg-gray-800 p-8 rounded-lg shadow-lg w-full max-w-md">
         <div className="text-center mb-8">
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <img src="/logo.svg" alt="Slack Clone" className="w-12 h-12" />
+            <span className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-violet-600 bg-clip-text text-transparent">
+              Slack Clone
+            </span>
+          </div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
             Create Account
           </h1>

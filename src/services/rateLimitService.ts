@@ -59,8 +59,7 @@ class RateLimitService {
         const data = JSON.parse(stored);
         this.limits = new Map(Object.entries(data));
       }
-    } catch (error) {
-      console.warn('Failed to load rate limits from storage:', error);
+    } catch {
     }
   }
 
@@ -68,8 +67,7 @@ class RateLimitService {
     try {
       const data = Object.fromEntries(this.limits);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    } catch (error) {
-      console.warn('Failed to save rate limits to storage:', error);
+    } catch {
     }
   }
 

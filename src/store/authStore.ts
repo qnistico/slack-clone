@@ -26,7 +26,7 @@ export const useAuthStore = create<AuthState>()(
       login: (user) => {
         set({ currentUser: user, isAuthenticated: true, isLoading: false });
         // Set user as online in Firebase
-        setUserOnline(user.id).catch(console.error);
+        setUserOnline(user.id).catch(() => {});
       },
 
       logout: async () => {
@@ -35,8 +35,7 @@ export const useAuthStore = create<AuthState>()(
           // Try to set offline, but don't block logout if it fails
           try {
             await setUserOffline(user.id);
-          } catch (error) {
-            console.error('Failed to set user offline:', error);
+          } catch {
           }
         }
         await firebaseLogout();
@@ -65,8 +64,7 @@ export const useAuthStore = create<AuthState>()(
               ? { ...state.currentUser, status, statusText }
               : null,
           }));
-        } catch (error) {
-          console.error('Failed to update status:', error);
+        } catch {
         }
       },
 
@@ -75,7 +73,7 @@ export const useAuthStore = create<AuthState>()(
         onAuthChange((user) => {
           if (user) {
             set({ currentUser: user, isAuthenticated: true, isLoading: false });
-            setUserOnline(user.id).catch(console.error);
+            setUserOnline(user.id).catch(() => {});
           } else {
             set({ currentUser: null, isAuthenticated: false, isLoading: false });
           }

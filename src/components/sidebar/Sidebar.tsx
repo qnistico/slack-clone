@@ -59,7 +59,7 @@ export default function Sidebar() {
 
         setWorkspaceMembers(validMembers);
       } catch (error) {
-        console.error('Failed to fetch workspace members:', error);
+        // Silent error handling
       }
     };
 
@@ -118,7 +118,7 @@ export default function Sidebar() {
       );
       setIsCreateModalOpen(false);
     } catch (error) {
-      console.error('Failed to create channel:', error);
+      // Silent error handling
     }
   };
 
@@ -143,7 +143,7 @@ export default function Sidebar() {
       const dmId = await createOrGetDM(currentUser.id, userId);
       navigate(`/workspace/${workspaceId}/dm/${dmId}`);
     } catch (error) {
-      console.error('Failed to create DM:', error);
+      // Silent error handling
     }
   };
 
@@ -186,7 +186,7 @@ export default function Sidebar() {
                       try {
                         await addWorkspaceMember(DEMO_WORKSPACE_ID, currentUser.id);
                       } catch (error) {
-                        console.log('Already a member or error:', error);
+                        // Silent error handling - already a member or error
                       }
                       navigate(`/workspace/${DEMO_WORKSPACE_ID}`);
                       setIsWorkspaceDropdownOpen(false);

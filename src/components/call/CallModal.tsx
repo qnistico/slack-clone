@@ -80,9 +80,8 @@ export default function CallModal({
   const setLocalVideoRef = useCallback((element: HTMLVideoElement | null) => {
     localVideoRef.current = element;
     if (element && localStreamRef.current) {
-      console.log('Local video element mounted, attaching stream');
       element.srcObject = localStreamRef.current;
-      element.play().catch(e => console.log('Local video play failed:', e));
+      element.play().catch(() => {});
     }
   }, []);
 
@@ -90,9 +89,8 @@ export default function CallModal({
   const setRemoteVideoRef = useCallback((element: HTMLVideoElement | null) => {
     remoteVideoRef.current = element;
     if (element && remoteStreamRef.current) {
-      console.log('Remote video element mounted, attaching stream');
       element.srcObject = remoteStreamRef.current;
-      element.play().catch(e => console.log('Remote video play failed:', e));
+      element.play().catch(() => {});
     }
   }, []);
 
@@ -100,36 +98,32 @@ export default function CallModal({
   const setRemoteAudioRef = useCallback((element: HTMLAudioElement | null) => {
     remoteAudioRef.current = element;
     if (element && remoteStreamRef.current) {
-      console.log('Remote audio element mounted, attaching stream for audio-only call');
       element.srcObject = remoteStreamRef.current;
-      element.play().catch(e => console.log('Remote audio play failed:', e));
+      element.play().catch(() => {});
     }
   }, []);
 
   // Effect to attach local stream to video element when it becomes available
   useEffect(() => {
     if (localVideoRef.current && localStreamRef.current) {
-      console.log('Attaching local stream to video element via effect');
       localVideoRef.current.srcObject = localStreamRef.current;
-      localVideoRef.current.play().catch(e => console.log('Local video play failed:', e));
+      localVideoRef.current.play().catch(() => {});
     }
   }, [isVideoEnabled, callStatus, callAnswered, isMinimized]);
 
   // Effect to attach remote stream to video element when it becomes available
   useEffect(() => {
     if (remoteVideoRef.current && remoteStreamRef.current) {
-      console.log('Attaching remote stream to video element via effect');
       remoteVideoRef.current.srcObject = remoteStreamRef.current;
-      remoteVideoRef.current.play().catch(e => console.log('Remote video play failed:', e));
+      remoteVideoRef.current.play().catch(() => {});
     }
   }, [callStatus, isMinimized]);
 
   // Effect to attach remote stream to audio element for audio-only calls
   useEffect(() => {
     if (callType !== 'video' && remoteAudioRef.current && remoteStreamRef.current) {
-      console.log('Attaching remote stream to audio element for audio-only call');
       remoteAudioRef.current.srcObject = remoteStreamRef.current;
-      remoteAudioRef.current.play().catch(e => console.log('Remote audio play failed:', e));
+      remoteAudioRef.current.play().catch(() => {});
     }
   }, [callType, callStatus]);
 
@@ -142,14 +136,12 @@ export default function CallModal({
     // Set up WebRTC callbacks
     webrtcService.setCallbacks({
       onLocalStreamReady: (stream) => {
-        console.log('Local stream ready');
         localStreamRef.current = stream;
         if (localVideoRef.current && isActive) {
           localVideoRef.current.srcObject = stream;
         }
       },
       onRemoteStreamReady: (stream) => {
-        console.log('Remote stream ready');
         remoteStreamRef.current = stream;
         if (remoteVideoRef.current && isActive) {
           remoteVideoRef.current.srcObject = stream;
@@ -157,7 +149,6 @@ export default function CallModal({
       },
       onCallStatusChange: (status) => {
         if (!isActive) return;
-        console.log('Call status changed:', status);
         setCallStatus(status);
         if (status === 'accepted') {
           setCallAnswered(true);
@@ -173,7 +164,6 @@ export default function CallModal({
         // Only close if we're still active and the call was properly ended
         // (not just a stale status from Firebase)
         if (isActive) {
-          console.log('Call ended callback received');
           handleClose();
         }
       },
@@ -185,21 +175,15 @@ export default function CallModal({
     }
 
     // Auto-answer incoming call if requested (from notification click)
-    console.log('CallModal useEffect - checking auto-answer:', { isIncoming, autoAnswer, callId, isOpen });
     if (isIncoming && autoAnswer && callId) {
-      console.log('Auto-answering call from notification:', callId);
       const answerCall = async () => {
         if (!isActive) {
-          console.log('Auto-answer aborted: effect no longer active');
           return;
         }
         try {
-          console.log('Starting auto-answer process for callId:', callId);
           setCallAnswered(true);
           await webrtcService.answerCall(callId);
-          console.log('Auto-answer successful, call should be connected');
         } catch (err) {
-          console.error('Auto-answer failed:', err);
           setCallAnswered(false);
           setError(err instanceof Error ? err.message : 'Failed to answer call');
         }
@@ -296,12 +280,9 @@ export default function CallModal({
   const handleAnswer = async () => {
     if (!callId) return;
     try {
-      console.log('Answering call:', callId);
       setCallAnswered(true);
       await webrtcService.answerCall(callId);
-      console.log('Call answered successfully');
     } catch (err) {
-      console.error('Error answering call:', err);
       setCallAnswered(false);
       setError(err instanceof Error ? err.message : 'Failed to answer call');
     }
@@ -317,8 +298,8 @@ export default function CallModal({
   const handleEndCall = async () => {
     try {
       await webrtcService.endCall();
-    } catch (err) {
-      console.error('Error ending call:', err);
+    } catch (error) {
+      // Silent error handling
     }
     handleClose();
   };

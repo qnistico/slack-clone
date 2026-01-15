@@ -36,8 +36,7 @@ export const useDMStore = create<DMState>((set) => ({
         });
         set({ dms });
       },
-      (error) => {
-        console.error('Error subscribing to DMs:', error);
+      () => {
         // Don't clear DMs on error - keep existing data
       }
     );

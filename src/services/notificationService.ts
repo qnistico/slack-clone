@@ -18,24 +18,19 @@ export function subscribeToUnreadNotifications(
   userId: string,
   onNotificationsChange: (notifications: UnreadNotification[]) => void
 ): () => void {
-  console.log('Subscribing to notifications for user:', userId);
   const notificationsRef = ref(realtimeDb, `notifications/${userId}`);
 
   const unsubscribe = onValue(notificationsRef, (snapshot) => {
     const data = snapshot.val() as Record<string, UnreadNotification> | null;
-    console.log('Notifications snapshot:', data);
     if (data) {
       const notifications = Object.values(data);
       // Sort by timestamp, newest first
       notifications.sort((a, b) => b.timestamp - a.timestamp);
-      console.log('Notifications found:', notifications.length);
       onNotificationsChange(notifications);
     } else {
-      console.log('No notifications found');
       onNotificationsChange([]);
     }
-  }, (error) => {
-    console.error('Error subscribing to notifications:', error);
+  }, () => {
   });
 
   return () => unsubscribe();
@@ -48,7 +43,6 @@ export async function addNotification(
   toUserId: string,
   notification: Omit<UnreadNotification, 'timestamp'>
 ): Promise<void> {
-  console.log('Adding notification for user:', toUserId, notification);
   const notificationId = `${notification.type}_${notification.channelId}_${Date.now()}`;
   const notificationRef = ref(realtimeDb, `notifications/${toUserId}/${notificationId}`);
 
@@ -57,9 +51,7 @@ export async function addNotification(
       ...notification,
       timestamp: Date.now(),
     });
-    console.log('Notification added successfully');
   } catch (error) {
-    console.error('Error adding notification:', error);
     throw error;
   }
 }

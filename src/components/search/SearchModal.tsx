@@ -56,7 +56,7 @@ export default function SearchModal({ isOpen, onClose, workspaceMembers, current
 
         setResults(filteredResults);
       } catch (error) {
-        console.error('Search failed:', error);
+        // Silent error handling
       } finally {
         setIsSearching(false);
       }

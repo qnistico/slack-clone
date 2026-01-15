@@ -48,7 +48,6 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         try {
           await createWorkspace(name, ownerId, icon);
         } catch (error) {
-          console.error('Failed to create workspace:', error);
           throw error;
         } finally {
           set({ isLoading: false });

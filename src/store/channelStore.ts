@@ -77,7 +77,6 @@ export const useChannelStore = create<ChannelState>()(
           );
           return channelId;
         } catch (error) {
-          console.error('Failed to create channel:', error);
           throw error;
         } finally {
           set({ isLoading: false });
@@ -88,7 +87,6 @@ export const useChannelStore = create<ChannelState>()(
         try {
           await addChannelMember(channelId, userId);
         } catch (error) {
-          console.error('Failed to join channel:', error);
           throw error;
         }
       },
@@ -97,7 +95,6 @@ export const useChannelStore = create<ChannelState>()(
         try {
           await deleteFirestoreChannel(channelId);
         } catch (error) {
-          console.error('Failed to delete channel:', error);
           throw error;
         }
       },
@@ -106,7 +103,6 @@ export const useChannelStore = create<ChannelState>()(
         try {
           await updateFirestoreChannel(channelId, updates);
         } catch (error) {
-          console.error('Failed to update channel:', error);
           throw error;
         }
       },

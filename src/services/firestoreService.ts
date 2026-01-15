@@ -29,7 +29,6 @@ export const setDemoWorkspaceOwner = async (newOwnerId: string): Promise<void> =
   const DEMO_WORKSPACE_ID = 'CF5VUKMfiADwrEqSvHTy';
   const workspaceRef = doc(db, 'workspaces', DEMO_WORKSPACE_ID);
   await updateDoc(workspaceRef, { ownerId: newOwnerId });
-  console.log('Demo Workspace owner updated to:', newOwnerId);
 };
 
 // ============================================
@@ -99,8 +98,7 @@ export const getWorkspacesByUser = async (userId: string): Promise<Workspace[]> 
     });
 
     return Array.from(workspaceMap.values());
-  } catch (error) {
-    console.error('Error fetching workspaces:', error);
+  } catch {
     // Fallback to owner-only query if members query fails
     const ownerQuery = query(collection(db, 'workspaces'), where('ownerId', '==', userId));
     const ownerSnapshot = await getDocs(ownerQuery);
@@ -156,8 +154,7 @@ export const subscribeToWorkspaces = (
       }));
       mergeAndCallback();
     },
-    (error) => {
-      console.error('Error in member workspaces subscription:', error);
+    () => {
       // Don't clear workspaces on error
     }
   );
@@ -175,8 +172,7 @@ export const subscribeToWorkspaces = (
       }));
       mergeAndCallback();
     },
-    (error) => {
-      console.error('Error in owner workspaces subscription:', error);
+    () => {
       // Don't clear workspaces on error
     }
   );
@@ -248,8 +244,7 @@ export const subscribeToChannels = (
       }));
       callback(channels);
     },
-    (error) => {
-      console.error('Error in channels subscription:', error);
+    () => {
       // Don't call callback with empty array on error - keep existing data
     }
   );
@@ -665,8 +660,7 @@ export const sendDMMessage = async (
         });
       }
     }
-  } catch (error) {
-    console.error('Failed to send notification:', error);
+  } catch {
     // Don't throw - notification failure shouldn't block message sending
   }
 

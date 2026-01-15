@@ -71,8 +71,7 @@ class WebRTCService {
       });
       this.onLocalStreamReady?.(this.localStream);
       return this.localStream;
-    } catch (error) {
-      console.error('Failed to get media devices:', error);
+    } catch {
       throw new Error('Could not access camera/microphone. Please check permissions.');
     }
   }
@@ -111,15 +110,13 @@ class WebRTCService {
             sdpMid: event.candidate.sdpMid,
             sdpMLineIndex: event.candidate.sdpMLineIndex,
           });
-        } catch (error) {
-          console.error('Failed to save ICE candidate:', error);
+        } catch {
         }
       }
     };
 
     // Handle connection state changes
     pc.onconnectionstatechange = () => {
-      console.log('Connection state:', pc.connectionState);
       if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
         this.endCall();
       }
@@ -138,13 +135,10 @@ class WebRTCService {
     calleeName: string,
     type: 'audio' | 'video'
   ): Promise<string> {
-    console.log('Starting call:', { callerId, callerName, calleeId, calleeName, type });
-
     // Generate unique call ID
     const callId = `${callerId}_${calleeId}_${Date.now()}`;
     this.currentCallId = callId;
     this.isCallInitiator = true; // We are the caller
-    console.log('Generated call ID:', callId);
 
     // Initialize media
     await this.initializeMedia(type === 'video');
@@ -172,12 +166,9 @@ class WebRTCService {
       createdAt: Date.now(),
     };
 
-    console.log('Saving call to Firebase:', callData);
     try {
       await set(callRef, callData);
-      console.log('Call saved successfully');
     } catch (error) {
-      console.error('Error saving call to Firebase:', error);
       throw error;
     }
 
@@ -231,8 +222,7 @@ class WebRTCService {
     for (const candidate of this.iceCandidatesQueue) {
       try {
         await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-      } catch (err) {
-        console.warn('Failed to add queued ICE candidate:', err);
+      } catch {
       }
     }
     this.iceCandidatesQueue = [];
@@ -270,8 +260,7 @@ class WebRTCService {
       if (this.currentCallId) {
         await set(ref(realtimeDb, `calls/${this.currentCallId}/status`), 'ended');
       }
-    } catch (error) {
-      console.error('Error updating call status:', error);
+    } catch {
       // Continue with cleanup even if Firebase update fails
     }
     this.cleanup();
@@ -377,7 +366,7 @@ class WebRTCService {
     this.firebaseUnsubscribers.forEach(unsub => {
       try {
         unsub();
-      } catch (e) {
+      } catch {
         // Ignore errors during unsubscribe
       }
     });
@@ -446,7 +435,6 @@ export function subscribeToIncomingCalls(
           // Only consider recent calls (within last 30 seconds)
           if (Date.now() - callData.createdAt < 30000) {
             if (callData.status === 'ringing') {
-              console.log('Incoming call detected:', callId);
               onIncomingCall(callId, callData);
             } else if (onCallStatusChanged) {
               // Notify about status changes (ended, declined, accepted)
@@ -456,8 +444,7 @@ export function subscribeToIncomingCalls(
         }
       }
     }
-  }, (error) => {
-    console.error('Error subscribing to calls:', error);
+  }, () => {
   });
 
   return () => unsubscribe();

@@ -45,7 +45,7 @@ export default function PendingInvitesModal({
               };
             }
           } catch (error) {
-            console.error('Failed to load workspace details:', error);
+            // Silent error handling
           }
           return {
             ...invite,
@@ -78,7 +78,6 @@ export default function PendingInvitesModal({
       // Remove from local state
       setInvitesWithWorkspace(prev => prev.filter(inv => inv.id !== inviteId));
     } catch (error) {
-      console.error('Failed to accept invite:', error);
       alert('Failed to accept invite. Please try again.');
     } finally {
       setLoading(false);
@@ -94,7 +93,6 @@ export default function PendingInvitesModal({
       // Remove from local state
       setInvitesWithWorkspace(prev => prev.filter(inv => inv.id !== inviteId));
     } catch (error) {
-      console.error('Failed to decline invite:', error);
       alert('Failed to decline invite. Please try again.');
     } finally {
       setLoading(false);

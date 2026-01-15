@@ -102,7 +102,7 @@ export default function DMPage() {
           }
         }
       } catch (error) {
-        console.error('Failed to fetch DM participants:', error);
+        // Silent error handling
       }
     };
 
@@ -128,7 +128,7 @@ export default function DMPage() {
 
         setWorkspaceMembers(validMembers);
       } catch (error) {
-        console.error('Failed to fetch workspace members:', error);
+        // Silent error handling
       }
     };
 
@@ -144,7 +144,6 @@ export default function DMPage() {
   // Helper function to process pending call data
   const processPendingCall = (data: { callId: string; callData: CallData }) => {
     const { callId, callData } = data;
-    console.log('Processing pending call:', { callId, callData });
 
     // Clear the pending call from sessionStorage
     sessionStorage.removeItem('pendingCall');
@@ -155,7 +154,6 @@ export default function DMPage() {
     setCallType(callData.type);
     setShouldAutoAnswer(true);
     setIsCallModalOpen(true);
-    console.log('CallModal opened with autoAnswer=true');
   };
 
   // Check sessionStorage on mount and when pendingCallProcessed changes
@@ -167,7 +165,6 @@ export default function DMPage() {
       try {
         processPendingCall(JSON.parse(pendingCallData));
       } catch (error) {
-        console.error('Error processing pending call:', error);
         sessionStorage.removeItem('pendingCall');
       }
     }
@@ -178,7 +175,6 @@ export default function DMPage() {
     if (!currentUser) return;
 
     const handlePendingCallEvent = (event: CustomEvent<{ callId: string; callData: CallData }>) => {
-      console.log('Received pendingCallUpdated event:', event.detail);
       // Always process the call from the event - it's a new call
       processPendingCall(event.detail);
     };
@@ -197,7 +193,7 @@ export default function DMPage() {
     try {
       await sendDMMessage(dmId, currentUser.id, content, currentUser.name);
     } catch (error) {
-      console.error('Failed to send DM:', error);
+      // Silent error handling
     }
   };
 
@@ -207,20 +203,34 @@ export default function DMPage() {
       try {
         await addReaction(messageId, emoji, currentUser.id);
       } catch (error) {
-        console.error('Failed to add reaction:', error);
+        // Silent error handling
       }
     }
   };
 
   const handleUserClick = async (userId: string) => {
     try {
+      // Check if it's a demo bot user first (they don't exist in Firestore)
+      const demoBot = DEMO_BOTS.find(bot => bot.id === userId);
+      if (demoBot) {
+        const botUser: User = {
+          id: demoBot.id,
+          name: demoBot.name,
+          email: `${demoBot.id}@demo.slack-clone.app`,
+          status: 'online',
+        };
+        setSelectedUser(botUser);
+        setIsProfileModalOpen(true);
+        return;
+      }
+
       const userData = await getUserById(userId);
       if (userData) {
         setSelectedUser(userData as User);
         setIsProfileModalOpen(true);
       }
     } catch (error) {
-      console.error('Failed to fetch user:', error);
+      // Silent error handling
     }
   };
 
@@ -230,7 +240,6 @@ export default function DMPage() {
       try {
         await updateMessage(messageId, newContent.trim());
       } catch (error) {
-        console.error('Failed to edit message:', error);
         alert('Failed to edit message. Please try again.');
       }
     }
@@ -240,7 +249,6 @@ export default function DMPage() {
     try {
       await deleteMessageFromDb(messageId);
     } catch (error) {
-      console.error('Failed to delete message:', error);
       alert('Failed to delete message. Please try again.');
     }
   };

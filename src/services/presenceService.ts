@@ -126,12 +126,10 @@ export const setUserTyping = async (channelId: string, userId: string, userName:
     setTimeout(async () => {
       try {
         await remove(typingRef);
-      } catch (error) {
-        console.error('Failed to remove typing indicator:', error);
+      } catch {
       }
     }, 5000);
-  } catch (error) {
-    console.error('Failed to set typing indicator:', error);
+  } catch {
   }
 };
 
