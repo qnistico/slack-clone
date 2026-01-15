@@ -178,7 +178,7 @@ export default function HomePage() {
                       <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">Try it!</span>
                     </h3>
                     <p className="text-sm text-purple-100">
-                      Explore all features with live demo bots
+                      Explore features with live demo bots
                     </p>
                   </div>
                 </div>
@@ -202,12 +202,10 @@ export default function HomePage() {
                     <div className="flex-1">
                       <h3 className="text-xl font-bold text-white flex items-center gap-2">
                         {DEMO_TOUR_NAME}
-                        {/*
                         <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full demo-badge">Live Demo</span>
-                        */}
                       </h3>
                       <p className="text-sm text-purple-100">
-                        Explore all features with live demo bots
+                        Explore features with live demo bots
                       </p>
                     </div>
                   </div>
