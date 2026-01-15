@@ -6,6 +6,7 @@ export interface UnreadNotification {
   fromUserId: string;
   fromUserName: string;
   channelId: string;
+  workspaceId?: string; // Workspace to navigate to when clicking notification
   content?: string;
   timestamp: number;
 }

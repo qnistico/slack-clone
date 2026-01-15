@@ -2,15 +2,33 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { useWorkspaceStore } from '../store/workspaceStore';
-import { Plus, Building2, LogOut, Trash2 } from 'lucide-react';
+import { Plus, Building2, LogOut, Trash2, Sparkles } from 'lucide-react';
 import {
   deleteWorkspace,
   getPendingInvitesByEmail,
   acceptWorkspaceInvite,
-  declineWorkspaceInvite
+  declineWorkspaceInvite,
+  addWorkspaceMember
 } from '../services/firestoreService';
+import { DEMO_WORKSPACE_ID } from '../services/demoActivityService';
 import PendingInvitesModal from '../components/modals/PendingInvitesModal';
-import type { WorkspaceInvite } from '../types';
+import type { WorkspaceInvite, Workspace } from '../types';
+
+// Admin email that can delete any workspace
+const ADMIN_EMAIL = 'quintonnistico@gmail.com';
+
+// Demo Tour display name (shown instead of the actual workspace name)
+const DEMO_TOUR_NAME = 'Demo Tour';
+
+// Demo Workspace data for display when user is not a member
+const DEMO_WORKSPACE_DATA: Workspace = {
+  id: DEMO_WORKSPACE_ID,
+  name: DEMO_TOUR_NAME,
+  ownerId: '',
+  members: [],
+  icon: '✨',
+  createdAt: new Date(),
+};
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -134,26 +152,88 @@ export default function HomePage() {
 
         {/* Workspace Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          {workspaces.map((workspace) => (
-            <div key={workspace.id} className="relative group">
-              <Link
-                to={`/workspace/${workspace.id}`}
-                className="block bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md hover:shadow-lg transition border border-gray-200 dark:border-gray-700 hover:border-purple-500 dark:hover:border-purple-500"
+          {/* Demo Workspace Card - Always visible, special styling */}
+          {!workspaces.find(w => w.id === DEMO_WORKSPACE_ID) && (
+            <div className="relative group">
+              <button
+                onClick={async () => {
+                  if (currentUser) {
+                    try {
+                      await addWorkspaceMember(DEMO_WORKSPACE_ID, currentUser.id);
+                    } catch (error) {
+                      console.log('Already a member or error:', error);
+                    }
+                    navigate(`/workspace/${DEMO_WORKSPACE_ID}`);
+                  }
+                }}
+                className="w-full text-left block bg-gradient-to-br from-purple-500 to-indigo-600 p-6 rounded-lg shadow-lg hover:shadow-xl transition transform hover:scale-[1.02] border-2 border-purple-400"
               >
                 <div className="flex items-center gap-4">
-                  <div className="text-4xl">{workspace.icon || '🏢'}</div>
+                  <div className="text-4xl bg-white/20 p-2 rounded-lg">
+                    <Sparkles size={32} className="text-white" />
+                  </div>
                   <div className="flex-1">
-                    <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-                      {workspace.name}
+                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                      {DEMO_WORKSPACE_DATA.name}
+                      <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full">Try it!</span>
                     </h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      Click to open
+                    <p className="text-sm text-purple-100">
+                      Explore all features with live demo bots
                     </p>
                   </div>
                 </div>
-              </Link>
-              {/* Delete Button */}
-              {currentUser?.id === workspace.ownerId && (
+              </button>
+            </div>
+          )}
+
+          {/* User's Workspaces */}
+          {workspaces.map((workspace) => (
+            <div key={workspace.id} className="relative group">
+              {workspace.id === DEMO_WORKSPACE_ID ? (
+                // Demo Tour with special styling
+                <Link
+                  to={`/workspace/${workspace.id}`}
+                  className="block bg-gradient-to-br from-purple-500 to-indigo-600 p-6 rounded-lg shadow-lg hover:shadow-xl transition transform hover:scale-[1.02] border-2 border-purple-400"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="text-4xl bg-white/20 p-2 rounded-lg">
+                      <Sparkles size={32} className="text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                        {DEMO_TOUR_NAME}
+                        {/*
+                        <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full demo-badge">Live Demo</span>
+                        */}
+                      </h3>
+                      <p className="text-sm text-purple-100">
+                        Explore all features with live demo bots
+                      </p>
+                    </div>
+                  </div>
+                </Link>
+              ) : (
+                // Regular workspace
+                <Link
+                  to={`/workspace/${workspace.id}`}
+                  className="block bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md hover:shadow-lg transition border border-gray-200 dark:border-gray-700 hover:border-purple-500 dark:hover:border-purple-500"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="text-4xl">{workspace.icon || '🏢'}</div>
+                    <div className="flex-1">
+                      <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                        {workspace.name}
+                      </h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        Click to open
+                      </p>
+                    </div>
+                  </div>
+                </Link>
+              )}
+              {/* Delete Button - only show for owner or admin, but Demo Workspace only deletable by admin */}
+              {(currentUser?.email === ADMIN_EMAIL ||
+                (currentUser?.id === workspace.ownerId && workspace.id !== DEMO_WORKSPACE_ID)) && (
                 <button
                   onClick={(e) => handleDeleteWorkspace(workspace.id, workspace.name, e)}
                   className="absolute top-2 right-2 p-2 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg opacity-0 group-hover:opacity-100 transition hover:bg-red-200 dark:hover:bg-red-900/50"
@@ -181,7 +261,7 @@ export default function HomePage() {
           <div className="text-center py-12">
             <Building2 size={64} className="mx-auto text-gray-400 mb-4" />
             <p className="text-gray-600 dark:text-gray-400 mb-4">
-              No workspaces yet. Create one to get started!
+              No workspaces yet. Try the Demo Workspace or create one to get started!
             </p>
           </div>
         )}

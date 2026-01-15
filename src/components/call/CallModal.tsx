@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff, X } from 'lucide-react';
+import { Phone, PhoneOff, Video, VideoOff, Mic, MicOff, X, Minimize2, Maximize2 } from 'lucide-react';
 import { webrtcService } from '../../services/webrtcService';
 import type { CallData } from '../../services/webrtcService';
 import { getUserAvatar } from '../../utils/avatar';
@@ -41,9 +41,17 @@ export default function CallModal({
   const [callDuration, setCallDuration] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [callAnswered, setCallAnswered] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
+
+  // Dragging state for minimized view
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragRef = useRef<{ startX: number; startY: number; initialX: number; initialY: number } | null>(null);
+  const minimizedRef = useRef<HTMLDivElement>(null);
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteAudioRef = useRef<HTMLAudioElement>(null);
   const durationIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Reset all state when modal opens (to handle subsequent calls)
@@ -55,6 +63,8 @@ export default function CallModal({
       setCallDuration(0);
       setError(null);
       setCallAnswered(false);
+      setIsMinimized(false);
+      setPosition({ x: 0, y: 0 });
     }
   }, [isOpen, callType]);
 
@@ -86,6 +96,16 @@ export default function CallModal({
     }
   }, []);
 
+  // Callback ref for remote audio (audio-only calls) - attaches stream when element mounts
+  const setRemoteAudioRef = useCallback((element: HTMLAudioElement | null) => {
+    remoteAudioRef.current = element;
+    if (element && remoteStreamRef.current) {
+      console.log('Remote audio element mounted, attaching stream for audio-only call');
+      element.srcObject = remoteStreamRef.current;
+      element.play().catch(e => console.log('Remote audio play failed:', e));
+    }
+  }, []);
+
   // Effect to attach local stream to video element when it becomes available
   useEffect(() => {
     if (localVideoRef.current && localStreamRef.current) {
@@ -93,7 +113,7 @@ export default function CallModal({
       localVideoRef.current.srcObject = localStreamRef.current;
       localVideoRef.current.play().catch(e => console.log('Local video play failed:', e));
     }
-  }, [isVideoEnabled, callStatus, callAnswered]);
+  }, [isVideoEnabled, callStatus, callAnswered, isMinimized]);
 
   // Effect to attach remote stream to video element when it becomes available
   useEffect(() => {
@@ -102,7 +122,16 @@ export default function CallModal({
       remoteVideoRef.current.srcObject = remoteStreamRef.current;
       remoteVideoRef.current.play().catch(e => console.log('Remote video play failed:', e));
     }
-  }, [callStatus]);
+  }, [callStatus, isMinimized]);
+
+  // Effect to attach remote stream to audio element for audio-only calls
+  useEffect(() => {
+    if (callType !== 'video' && remoteAudioRef.current && remoteStreamRef.current) {
+      console.log('Attaching remote stream to audio element for audio-only call');
+      remoteAudioRef.current.srcObject = remoteStreamRef.current;
+      remoteAudioRef.current.play().catch(e => console.log('Remote audio play failed:', e));
+    }
+  }, [callType, callStatus]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -191,6 +220,65 @@ export default function CallModal({
     };
   }, [isOpen, autoAnswer, callId, isIncoming]);
 
+  // Dragging handlers
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!isMinimized) return;
+    e.preventDefault();
+    setIsDragging(true);
+    dragRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      initialX: position.x,
+      initialY: position.y,
+    };
+  };
+
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!dragRef.current) return;
+      const deltaX = e.clientX - dragRef.current.startX;
+      const deltaY = e.clientY - dragRef.current.startY;
+
+      // Calculate new position
+      let newX = dragRef.current.initialX + deltaX;
+      let newY = dragRef.current.initialY + deltaY;
+
+      // Get viewport bounds
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      const elementWidth = minimizedRef.current?.offsetWidth || 280;
+      const elementHeight = minimizedRef.current?.offsetHeight || 180;
+
+      // Constrain to viewport (position is relative to bottom-right)
+      // newX is negative (moving left from right edge)
+      // newY is negative (moving up from bottom edge)
+      const maxX = 0;
+      const minX = -(viewportWidth - elementWidth - 16);
+      const maxY = 0;
+      const minY = -(viewportHeight - elementHeight - 16);
+
+      newX = Math.max(minX, Math.min(maxX, newX));
+      newY = Math.max(minY, Math.min(maxY, newY));
+
+      setPosition({ x: newX, y: newY });
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+      dragRef.current = null;
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging]);
+
   const startOutgoingCall = async () => {
     try {
       await webrtcService.startCall(
@@ -243,6 +331,7 @@ export default function CallModal({
     setCallDuration(0);
     setCallStatus('ended');
     setError(null);
+    setIsMinimized(false);
     onClose();
   };
 
@@ -277,16 +366,155 @@ export default function CallModal({
 
   if (!isOpen) return null;
 
+  // Minimized view - small draggable widget
+  if (isMinimized) {
+    return (
+      <>
+        {/* Hidden audio element for audio-only calls */}
+        {callType !== 'video' && (
+          <audio ref={setRemoteAudioRef} autoPlay playsInline />
+        )}
+
+        <div
+          ref={minimizedRef}
+          className={`fixed z-50 bg-gray-900 rounded-xl shadow-2xl border border-gray-700 overflow-hidden ${
+            isDragging ? 'cursor-grabbing' : 'cursor-grab'
+          }`}
+          style={{
+            bottom: `${16 - position.y}px`,
+            right: `${16 - position.x}px`,
+            width: callType === 'video' ? '280px' : '240px',
+          }}
+          onMouseDown={handleMouseDown}
+        >
+          {/* Video preview or avatar for minimized view */}
+          {callType === 'video' && callStatus === 'accepted' ? (
+            <div className="relative w-full h-40">
+              <video
+                ref={setRemoteVideoRef}
+                autoPlay
+                playsInline
+                className="w-full h-full object-cover"
+              />
+              {/* Small local video in corner */}
+              {isVideoEnabled && (
+                <div className="absolute bottom-2 right-2 w-16 h-12 bg-gray-800 rounded overflow-hidden border border-gray-600">
+                  <video
+                    ref={setLocalVideoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full h-full object-cover"
+                    style={{ transform: 'scaleX(-1)' }}
+                  />
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 p-3 bg-gray-800">
+              <img
+                src={getUserAvatar(displayName || 'User', displayAvatar)}
+                alt={displayName}
+                className="w-12 h-12 rounded-full"
+              />
+              <div className="flex-1 min-w-0">
+                <p className="text-white font-medium truncate">{displayName}</p>
+                <p className="text-gray-400 text-sm">
+                  {callStatus === 'accepted' ? formatDuration(callDuration) : 'Connecting...'}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Minimized controls */}
+          <div className="flex items-center justify-between px-3 py-2 bg-gray-800/90 border-t border-gray-700">
+            <div className="flex items-center gap-2">
+              {/* Audio toggle */}
+              <button
+                onClick={(e) => { e.stopPropagation(); toggleAudio(); }}
+                className={`p-2 rounded-full transition ${
+                  isAudioEnabled ? 'bg-gray-700 hover:bg-gray-600' : 'bg-red-600 hover:bg-red-700'
+                }`}
+                title={isAudioEnabled ? 'Mute' : 'Unmute'}
+              >
+                {isAudioEnabled ? (
+                  <Mic size={16} className="text-white" />
+                ) : (
+                  <MicOff size={16} className="text-white" />
+                )}
+              </button>
+
+              {/* Video toggle (only for video calls) */}
+              {callType === 'video' && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); toggleVideo(); }}
+                  className={`p-2 rounded-full transition ${
+                    isVideoEnabled ? 'bg-gray-700 hover:bg-gray-600' : 'bg-red-600 hover:bg-red-700'
+                  }`}
+                  title={isVideoEnabled ? 'Turn off camera' : 'Turn on camera'}
+                >
+                  {isVideoEnabled ? (
+                    <Video size={16} className="text-white" />
+                  ) : (
+                    <VideoOff size={16} className="text-white" />
+                  )}
+                </button>
+              )}
+
+              {/* End call */}
+              <button
+                onClick={(e) => { e.stopPropagation(); handleEndCall(); }}
+                className="p-2 rounded-full bg-red-600 hover:bg-red-700 transition"
+                title="End call"
+              >
+                <PhoneOff size={16} className="text-white" />
+              </button>
+            </div>
+
+            {/* Maximize button */}
+            <button
+              onClick={(e) => { e.stopPropagation(); setIsMinimized(false); }}
+              className="p-2 rounded-full bg-gray-700 hover:bg-gray-600 transition"
+              title="Maximize"
+            >
+              <Maximize2 size={16} className="text-white" />
+            </button>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // Full screen view
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90">
+      {/* Hidden audio element for audio-only calls */}
+      {callType !== 'video' && (
+        <audio ref={setRemoteAudioRef} autoPlay playsInline />
+      )}
+
       <div className="relative w-full h-full max-w-4xl max-h-[90vh] bg-gray-900 rounded-xl overflow-hidden flex flex-col">
-        {/* Close button - force close to ensure it always works */}
-        <button
-          onClick={handleForceClose}
-          className="absolute top-4 right-4 z-10 p-2 rounded-full bg-gray-800/80 hover:bg-gray-700 transition"
-        >
-          <X size={24} className="text-white" />
-        </button>
+        {/* Header buttons */}
+        <div className="absolute top-4 right-4 z-10 flex items-center gap-2">
+          {/* Minimize button - only show when call is active */}
+          {callStatus === 'accepted' && (
+            <button
+              onClick={() => setIsMinimized(true)}
+              className="p-2 rounded-full bg-gray-800/80 hover:bg-gray-700 transition"
+              title="Minimize"
+            >
+              <Minimize2 size={24} className="text-white" />
+            </button>
+          )}
+          {/* Close button - force close to ensure it always works */}
+          <button
+            onClick={handleForceClose}
+            className="p-2 rounded-full bg-gray-800/80 hover:bg-gray-700 transition"
+            title="End call"
+          >
+            <X size={24} className="text-white" />
+          </button>
+        </div>
 
         {/* Main video/call area */}
         <div className="flex-1 relative flex items-center justify-center">

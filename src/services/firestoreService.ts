@@ -18,6 +18,21 @@ import { db } from '../lib/firebase';
 import type { Message, Channel, Workspace, Reaction, WorkspaceInvite } from '../types/index';
 
 // ============================================
+// ADMIN: One-time setup function (remove after use)
+// ============================================
+
+/**
+ * Set owner of Demo Workspace - call from browser console:
+ * import('./services/firestoreService').then(m => m.setDemoWorkspaceOwner('YOUR_USER_ID'))
+ */
+export const setDemoWorkspaceOwner = async (newOwnerId: string): Promise<void> => {
+  const DEMO_WORKSPACE_ID = 'CF5VUKMfiADwrEqSvHTy';
+  const workspaceRef = doc(db, 'workspaces', DEMO_WORKSPACE_ID);
+  await updateDoc(workspaceRef, { ownerId: newOwnerId });
+  console.log('Demo Workspace owner updated to:', newOwnerId);
+};
+
+// ============================================
 // WORKSPACE OPERATIONS
 // ============================================
 
@@ -269,14 +284,17 @@ export const sendMessage = async (
   content: string,
   threadId?: string
 ): Promise<string> => {
+  // Use Timestamp.now() for immediate local availability, serverTimestamp() for accuracy
+  // This ensures the message appears immediately in orderBy queries
+  const now = Timestamp.now();
   const messageRef = await addDoc(collection(db, 'messages'), {
     channelId,
     userId,
     content,
     threadId: threadId || null,
     reactions: [],
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
+    createdAt: now,
+    updatedAt: now,
   });
   return messageRef.id;
 };
@@ -610,11 +628,13 @@ export const sendDMMessage = async (
   content: string,
   senderName?: string
 ): Promise<string> => {
+  // Use Timestamp.now() for immediate local availability in orderBy queries
+  const now = Timestamp.now();
   const messageRef = await addDoc(collection(db, "messages"), {
     channelId: dmId, // We reuse channelId field for DM id
     userId,
     content,
-    createdAt: serverTimestamp(),
+    createdAt: now,
     reactions: [],
     threadId: null,
   });
@@ -634,11 +654,13 @@ export const sendDMMessage = async (
       if (otherUserId && senderName) {
         // Import notification service dynamically to avoid circular deps
         const { addNotification } = await import('./notificationService');
+        const { DEMO_WORKSPACE_ID } = await import('./demoActivityService');
         await addNotification(otherUserId, {
           type: 'dm',
           fromUserId: userId,
           fromUserName: senderName,
           channelId: dmId,
+          workspaceId: DEMO_WORKSPACE_ID, // Use demo workspace for DM navigation
           content: content.substring(0, 100), // Preview
         });
       }

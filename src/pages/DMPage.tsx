@@ -17,6 +17,7 @@ import CallModal from '../components/call/CallModal';
 import { getUserById, sendDMMessage, updateMessage, deleteMessage as deleteMessageFromDb } from '../services/firestoreService';
 import { getUserAvatar } from '../utils/avatar';
 import { MessageListSkeleton } from '../components/common/Skeleton';
+import { DEMO_BOTS } from '../services/demoActivityService';
 import type { CallData } from '../services/webrtcService';
 import type { User, Channel } from '../types/index';
 
@@ -82,9 +83,22 @@ export default function DMPage() {
           const otherUserId = participants.find((id: string) => id !== currentUser.id);
 
           if (otherUserId) {
-            const user = await getUserById(otherUserId);
-            if (user) {
-              setOtherUser(user as User);
+            // Check if it's a demo bot
+            const demoBot = DEMO_BOTS.find(bot => bot.id === otherUserId);
+            if (demoBot) {
+              // Create a fake user object for the bot
+              setOtherUser({
+                id: demoBot.id,
+                name: demoBot.name,
+                email: `${demoBot.id}@demo.bot`,
+                status: 'online',
+                createdAt: new Date(),
+              } as User);
+            } else {
+              const user = await getUserById(otherUserId);
+              if (user) {
+                setOtherUser(user as User);
+              }
             }
           }
         }
@@ -359,7 +373,7 @@ export default function DMPage() {
         ) : (
           <MessageList
             messages={messages}
-            users={workspaceMembers}
+            users={otherUser ? [...workspaceMembers, otherUser] : workspaceMembers}
             onReactionClick={handleReactionClick}
             onUserClick={handleUserClick}
             onEditMessage={handleEditMessage}

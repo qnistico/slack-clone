@@ -1,17 +1,20 @@
 import { useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import MiniNavbar from '../components/layout/MiniNavbar';
 import Sidebar from '../components/sidebar/Sidebar';
 import { useChannelStore } from '../store/channelStore';
 import { useWorkspaceStore } from '../store/workspaceStore';
 import { useAuthStore } from '../store/authStore';
+import { DEMO_WORKSPACE_ID } from '../services/demoActivityService';
 
 export default function WorkspacePage() {
+  const navigate = useNavigate();
   const { workspaceId } = useParams<{ workspaceId: string }>();
   const currentUser = useAuthStore((state) => state.currentUser);
   const setCurrentWorkspace = useWorkspaceStore((state) => state.setCurrentWorkspace);
   const subscribeToUserWorkspaces = useWorkspaceStore((state) => state.subscribeToUserWorkspaces);
   const subscribeToWorkspaceChannels = useChannelStore((state) => state.subscribeToWorkspaceChannels);
+  const channels = useChannelStore((state) => state.channels);
 
   // Subscribe to user workspaces
   useEffect(() => {
@@ -29,6 +32,17 @@ export default function WorkspacePage() {
       return () => unsubscribe();
     }
   }, [workspaceId, setCurrentWorkspace, subscribeToWorkspaceChannels]);
+
+  // Auto-redirect to first channel in demo workspace
+  useEffect(() => {
+    if (workspaceId === DEMO_WORKSPACE_ID && channels.length > 0) {
+      const workspaceChannels = channels.filter(c => c.workspaceId === workspaceId);
+      if (workspaceChannels.length > 0) {
+        // Redirect to the first channel (usually #general)
+        navigate(`/workspace/${workspaceId}/channel/${workspaceChannels[0].id}`, { replace: true });
+      }
+    }
+  }, [workspaceId, channels, navigate]);
 
   return (
     <div className="flex h-screen overflow-hidden">

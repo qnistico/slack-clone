@@ -186,19 +186,18 @@ export default function ChannelPage() {
   }, [currentUser, currentChannel, channelId]);
 
   // Demo workspace: Start simulated activity sequence
+  // Use currentUser.id instead of currentUser object to prevent re-runs
+  const currentUserId = currentUser?.id;
   useEffect(() => {
-    if (!workspaceId || !channelId || !currentUser) return;
+    if (!workspaceId || !channelId || !currentUserId) return;
 
     // Only trigger in demo workspace
     if (workspaceId === DEMO_WORKSPACE_ID) {
       // Start the demo activity sequence (typing indicator, then notification)
-      demoActivityService.startActivitySequence(workspaceId, channelId, currentUser.id);
-
-      return () => {
-        demoActivityService.stop();
-      };
+      // Note: We don't call stop() on cleanup - let the sequence finish naturally
+      demoActivityService.startActivitySequence(workspaceId, channelId, currentUserId);
     }
-  }, [workspaceId, channelId, currentUser]);
+  }, [workspaceId, channelId, currentUserId]);
 
   const channelMessages = channelId
     ? messages

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import { Hash, Lock, Plus, ChevronDown, UserPlus, Search } from 'lucide-react';
+import { Hash, Lock, Plus, ChevronDown, UserPlus, Search, Sparkles } from 'lucide-react';
 import { useWorkspaceStore } from '../../store/workspaceStore';
 import { useChannelStore } from '../../store/channelStore';
 import { useAuthStore } from '../../store/authStore';
@@ -8,9 +8,13 @@ import { useDMStore } from '../../store/dmStore';
 import CreateChannelModal from '../modals/CreateChannelModal';
 import InviteModal from '../modals/InviteModal';
 import SearchModal from '../search/SearchModal';
-import { createWorkspaceInvite, getUserByEmail, getUserById, createOrGetDM } from '../../services/firestoreService';
+import { createWorkspaceInvite, getUserByEmail, getUserById, createOrGetDM, addWorkspaceMember } from '../../services/firestoreService';
+import { DEMO_WORKSPACE_ID } from '../../services/demoActivityService';
 import { getUserAvatar } from '../../utils/avatar';
 import type { User } from '../../types';
+
+// Demo Tour display name
+const DEMO_TOUR_NAME = 'Demo Tour';
 
 export default function Sidebar() {
   const navigate = useNavigate();
@@ -152,8 +156,14 @@ export default function Sidebar() {
           className="w-full flex items-center justify-between hover:bg-purple-800 rounded px-2 py-1 transition pr-12 lg:pr-2"
         >
           <div className="flex items-center gap-2 min-w-0 flex-1">
-            <span className="text-2xl flex-shrink-0">{currentWorkspace?.icon}</span>
-            <span className="text-lg font-bold truncate">{currentWorkspace?.name}</span>
+            {workspaceId === DEMO_WORKSPACE_ID ? (
+              <Sparkles size={24} className="flex-shrink-0 text-purple-300" />
+            ) : (
+              <span className="text-2xl flex-shrink-0">{currentWorkspace?.icon}</span>
+            )}
+            <span className="text-lg font-bold truncate">
+              {workspaceId === DEMO_WORKSPACE_ID ? DEMO_TOUR_NAME : currentWorkspace?.name}
+            </span>
           </div>
           <ChevronDown
             size={18}
@@ -165,6 +175,27 @@ export default function Sidebar() {
         {isWorkspaceDropdownOpen && (
           <div className="absolute top-full left-4 right-4 mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 overflow-hidden">
             <div className="py-1">
+              {/* Demo Workspace - show if not in user's workspaces */}
+              {!workspaces.find(w => w.id === DEMO_WORKSPACE_ID) && (
+                <button
+                  onClick={async () => {
+                    if (currentUser) {
+                      try {
+                        await addWorkspaceMember(DEMO_WORKSPACE_ID, currentUser.id);
+                      } catch (error) {
+                        console.log('Already a member or error:', error);
+                      }
+                      navigate(`/workspace/${DEMO_WORKSPACE_ID}`);
+                      setIsWorkspaceDropdownOpen(false);
+                    }
+                  }}
+                  className="w-full px-4 py-2 text-left bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 transition flex items-center gap-2"
+                >
+                  <Sparkles size={20} className="text-white" />
+                  <span className="font-medium text-white truncate">{DEMO_TOUR_NAME}</span>
+                  <span className="text-xs bg-white/20 text-white px-1.5 py-0.5 rounded ml-auto">Try it!</span>
+                </button>
+              )}
               {workspaces.map((workspace) => (
                 <button
                   key={workspace.id}
@@ -172,16 +203,28 @@ export default function Sidebar() {
                     navigate(`/workspace/${workspace.id}`);
                     setIsWorkspaceDropdownOpen(false);
                   }}
-                  className={`w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition flex items-center gap-2 ${
-                    workspace.id === workspaceId
-                      ? 'bg-purple-50 dark:bg-purple-900/20'
-                      : ''
+                  className={`w-full px-4 py-2 text-left transition flex items-center gap-2 ${
+                    workspace.id === DEMO_WORKSPACE_ID
+                      ? 'bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600'
+                      : workspace.id === workspaceId
+                        ? 'bg-purple-50 dark:bg-purple-900/20 hover:bg-gray-100 dark:hover:bg-gray-700'
+                        : 'hover:bg-gray-100 dark:hover:bg-gray-700'
                   }`}
                 >
-                  <span className="text-xl">{workspace.icon}</span>
-                  <span className="font-medium text-gray-900 dark:text-white truncate">
-                    {workspace.name}
-                  </span>
+                  {workspace.id === DEMO_WORKSPACE_ID ? (
+                    <>
+                      <Sparkles size={20} className="text-white" />
+                      <span className="font-medium text-white truncate">{DEMO_TOUR_NAME}</span>
+                      <span className="text-xs bg-white/20 text-white px-1.5 py-0.5 rounded ml-auto">Live</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-xl">{workspace.icon}</span>
+                      <span className="font-medium text-gray-900 dark:text-white truncate">
+                        {workspace.name}
+                      </span>
+                    </>
+                  )}
                 </button>
               ))}
               <div className="border-t border-gray-200 dark:border-gray-700 my-1" />

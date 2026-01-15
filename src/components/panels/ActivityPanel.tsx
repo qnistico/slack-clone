@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { subscribeToUnreadNotifications, clearNotifications, clearChannelNotifications } from '../../services/notificationService';
 import { getUserAvatar } from '../../utils/avatar';
+import { DEMO_WORKSPACE_ID } from '../../services/demoActivityService';
 import type { UnreadNotification } from '../../services/notificationService';
 
 interface ActivityPanelProps {
@@ -34,7 +35,9 @@ export default function ActivityPanel({ isOpen, onClose }: ActivityPanelProps) {
     }
 
     if (notification.type === 'dm') {
-      navigate(`/workspace/${workspaceId}/dm/${notification.channelId}`);
+      // Use workspaceId from notification, fall back to current workspace, or use Demo Workspace
+      const targetWorkspaceId = notification.workspaceId || workspaceId || DEMO_WORKSPACE_ID;
+      navigate(`/workspace/${targetWorkspaceId}/dm/${notification.channelId}`);
       onClose();
     }
   };
