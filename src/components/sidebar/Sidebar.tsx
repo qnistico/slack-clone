@@ -9,7 +9,7 @@ import CreateChannelModal from '../modals/CreateChannelModal';
 import InviteModal from '../modals/InviteModal';
 import SearchModal from '../search/SearchModal';
 import { createWorkspaceInvite, getUserByEmail, getUserById, createOrGetDM, addWorkspaceMember } from '../../services/firestoreService';
-import { DEMO_WORKSPACE_ID } from '../../services/demoActivityService';
+import { DEMO_WORKSPACE_ID, demoActivityService } from '../../services/demoActivityService';
 import { getUserAvatar } from '../../utils/avatar';
 import type { User } from '../../types';
 
@@ -180,6 +180,9 @@ export default function Sidebar() {
                 <button
                   onClick={async () => {
                     if (currentUser) {
+                      // Clear all bot messages for a fresh demo experience
+                      await demoActivityService.clearAllDemoBotMessages();
+                      await demoActivityService.clearOldBotDMs(currentUser.id);
                       try {
                         await addWorkspaceMember(DEMO_WORKSPACE_ID, currentUser.id);
                       } catch (error) {
@@ -199,7 +202,12 @@ export default function Sidebar() {
               {workspaces.map((workspace) => (
                 <button
                   key={workspace.id}
-                  onClick={() => {
+                  onClick={async () => {
+                    // Clear bot messages when entering Demo Tour for fresh experience
+                    if (workspace.id === DEMO_WORKSPACE_ID && currentUser) {
+                      await demoActivityService.clearAllDemoBotMessages();
+                      await demoActivityService.clearOldBotDMs(currentUser.id);
+                    }
                     navigate(`/workspace/${workspace.id}`);
                     setIsWorkspaceDropdownOpen(false);
                   }}

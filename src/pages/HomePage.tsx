@@ -10,7 +10,7 @@ import {
   declineWorkspaceInvite,
   addWorkspaceMember
 } from '../services/firestoreService';
-import { DEMO_WORKSPACE_ID } from '../services/demoActivityService';
+import { DEMO_WORKSPACE_ID, demoActivityService } from '../services/demoActivityService';
 import PendingInvitesModal from '../components/modals/PendingInvitesModal';
 import type { WorkspaceInvite, Workspace } from '../types';
 
@@ -158,6 +158,9 @@ export default function HomePage() {
               <button
                 onClick={async () => {
                   if (currentUser) {
+                    // Clear all bot messages for a fresh demo experience
+                    await demoActivityService.clearAllDemoBotMessages();
+                    await demoActivityService.clearOldBotDMs(currentUser.id);
                     try {
                       await addWorkspaceMember(DEMO_WORKSPACE_ID, currentUser.id);
                     } catch (error) {
@@ -190,10 +193,17 @@ export default function HomePage() {
           {workspaces.map((workspace) => (
             <div key={workspace.id} className="relative group">
               {workspace.id === DEMO_WORKSPACE_ID ? (
-                // Demo Tour with special styling
-                <Link
-                  to={`/workspace/${workspace.id}`}
-                  className="block bg-gradient-to-br from-purple-500 to-indigo-600 p-6 rounded-lg shadow-lg hover:shadow-xl transition transform hover:scale-[1.02] border-2 border-purple-400"
+                // Demo Tour with special styling - use button for async cleanup
+                <button
+                  onClick={async () => {
+                    if (currentUser) {
+                      // Clear all bot messages for a fresh demo experience
+                      await demoActivityService.clearAllDemoBotMessages();
+                      await demoActivityService.clearOldBotDMs(currentUser.id);
+                      navigate(`/workspace/${workspace.id}`);
+                    }
+                  }}
+                  className="w-full text-left block bg-gradient-to-br from-purple-500 to-indigo-600 p-6 rounded-lg shadow-lg hover:shadow-xl transition transform hover:scale-[1.02] border-2 border-purple-400"
                 >
                   <div className="flex items-center gap-4">
                     <div className="text-4xl bg-white/20 p-2 rounded-lg">
@@ -209,7 +219,7 @@ export default function HomePage() {
                       </p>
                     </div>
                   </div>
-                </Link>
+                </button>
               ) : (
                 // Regular workspace
                 <Link

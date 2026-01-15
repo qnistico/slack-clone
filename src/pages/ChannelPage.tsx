@@ -18,7 +18,7 @@ import TypingIndicator from '../components/chat/TypingIndicator';
 import type { Message, User } from '../types/index';
 import { updateMessage, deleteMessage as deleteMessageFromDb, getUserById, addChannelMember, addWorkspaceMember } from '../services/firestoreService';
 import { MessageListSkeleton } from '../components/common/Skeleton';
-import { demoActivityService, DEMO_WORKSPACE_ID } from '../services/demoActivityService';
+import { demoActivityService, DEMO_WORKSPACE_ID, DEMO_BOTS } from '../services/demoActivityService';
 
 export default function ChannelPage() {
   const navigate = useNavigate();
@@ -128,6 +128,17 @@ export default function ChannelPage() {
         if (currentUser && !validMembers.find(m => m.id === currentUser.id)) {
           console.log('Adding current user to members list');
           validMembers.push(currentUser);
+        }
+
+        // Add demo bot users if this is the Demo workspace
+        if (workspaceId === DEMO_WORKSPACE_ID) {
+          const botUsers: User[] = DEMO_BOTS.map(bot => ({
+            id: bot.id,
+            name: bot.name,
+            email: `${bot.id}@demo.slack-clone.app`,
+            status: 'online' as const,
+          }));
+          validMembers.push(...botUsers);
         }
 
         console.log('Loaded workspace members:', validMembers.map(m => ({ id: m.id, name: m.name })));

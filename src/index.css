@@ -184,3 +184,7 @@
 .presence-online {
   animation: presence-pulse 2s ease-in-out infinite;
 }
+
+a, button {
+  cursor: pointer;
+}

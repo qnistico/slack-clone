@@ -92,8 +92,7 @@ export default function DMPage() {
                 name: demoBot.name,
                 email: `${demoBot.id}@demo.bot`,
                 status: 'online',
-                createdAt: new Date(),
-              } as User);
+              });
             } else {
               const user = await getUserById(otherUserId);
               if (user) {

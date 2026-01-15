@@ -49,11 +49,6 @@ const SAMPLE_REACTIONS = ['👍', '🎉', '🚀', '💯', '❤️', '👀', '✨
 class DemoActivityService {
   private timeouts: ReturnType<typeof setTimeout>[] = [];
   private currentSequenceId: string | null = null; // Track current sequence to prevent duplicates
-  private sessionKeyPrefix = 'demo-activity-triggered-';
-
-  constructor() {
-    // Check sessionStorage on init (will be 'true' if already triggered this session)
-  }
 
   /**
    * Check if we're in the demo workspace
@@ -63,33 +58,9 @@ class DemoActivityService {
   }
 
   /**
-   * Get the session key for a specific user (each user gets their own session flag)
-   */
-  private getSessionKey(userId: string): string {
-    return `${this.sessionKeyPrefix}${userId}`;
-  }
-
-  /**
-   * Check if demo has already been triggered this session for a specific user
-   */
-  private hasTriggeredThisSession(userId: string): boolean {
-    if (typeof sessionStorage === 'undefined') return false;
-    return sessionStorage.getItem(this.getSessionKey(userId)) === 'true';
-  }
-
-  /**
-   * Mark demo as triggered for this session for a specific user
-   */
-  private markTriggered(userId: string): void {
-    if (typeof sessionStorage !== 'undefined') {
-      sessionStorage.setItem(this.getSessionKey(userId), 'true');
-    }
-  }
-
-  /**
    * Clear old bot messages from a channel (keep it fresh for new visitors)
    */
-  private async clearOldBotMessages(channelId: string): Promise<void> {
+  async clearOldBotMessages(channelId: string): Promise<void> {
     try {
       // Query for messages in this channel from bot users
       const messagesQuery = query(
@@ -115,15 +86,65 @@ class DemoActivityService {
   }
 
   /**
+   * Clear ALL bot messages from ALL channels in the demo workspace
+   * Called when user clicks Demo Tour button for a completely fresh experience
+   */
+  async clearAllDemoBotMessages(): Promise<void> {
+    try {
+      // Query for ALL messages from bot users (bot IDs start with 'bot-')
+      const messagesQuery = query(
+        collection(db, 'messages'),
+        where('userId', '>=', 'bot-'),
+        where('userId', '<=', 'bot-\uf8ff')
+      );
+
+      const snapshot = await getDocs(messagesQuery);
+
+      // Delete each bot message
+      const deletePromises = snapshot.docs.map(docSnap =>
+        deleteDoc(doc(db, 'messages', docSnap.id))
+      );
+
+      await Promise.all(deletePromises);
+      console.log(`Demo: Cleared ${snapshot.docs.length} total bot messages from all channels`);
+    } catch (error) {
+      console.error('Demo: Failed to clear all bot messages:', error);
+    }
+  }
+
+  /**
    * Clear old bot DM messages and notifications
    */
-  private async clearOldBotDMs(userId: string): Promise<void> {
+  async clearOldBotDMs(userId: string): Promise<void> {
     try {
       // Clear notifications for this user
       const { ref, set } = await import('firebase/database');
       const { realtimeDb } = await import('../lib/firebase');
       await set(ref(realtimeDb, `notifications/${userId}`), null);
       console.log('Demo: Cleared old notifications');
+
+      // Clear DM messages from all bot conversations
+      for (const bot of DEMO_BOTS) {
+        try {
+          // Generate the DM ID (same logic as createOrGetDM)
+          const participants = [bot.id, userId].sort();
+          const dmId = participants.join('_');
+
+          // Delete all messages in this DM conversation
+          const messagesQuery = query(
+            collection(db, 'messages'),
+            where('channelId', '==', dmId)
+          );
+          const snapshot = await getDocs(messagesQuery);
+          const deletePromises = snapshot.docs.map(docSnap =>
+            deleteDoc(doc(db, 'messages', docSnap.id))
+          );
+          await Promise.all(deletePromises);
+          console.log(`Demo: Cleared ${snapshot.docs.length} messages from DM with ${bot.name}`);
+        } catch (error) {
+          console.log(`Demo: Could not clear DM with ${bot.name}:`, error);
+        }
+      }
     } catch (error) {
       console.error('Demo: Failed to clear notifications:', error);
     }
@@ -175,17 +196,11 @@ class DemoActivityService {
    * - 10.0s: Second channel message
    * - 15.0s: Follow-up DM (second Activity notification)
    *
-   * Only runs once per browser session to avoid spam.
+   * Runs every time user enters Demo Tour for fresh demo experience.
    */
   async startActivitySequence(workspaceId: string, channelId: string, currentUserId: string) {
     // Only run in demo workspace
     if (!this.isDemoWorkspace(workspaceId)) {
-      return;
-    }
-
-    // Only run once per session per user
-    if (this.hasTriggeredThisSession(currentUserId)) {
-      console.log('Demo: Already triggered this session for user', currentUserId);
       return;
     }
 
@@ -197,9 +212,6 @@ class DemoActivityService {
       console.log('Demo: Sequence already running, skipping');
       return;
     }
-
-    // Mark as triggered for this session for this user
-    this.markTriggered(currentUserId);
 
     this.currentSequenceId = sequenceId;
 

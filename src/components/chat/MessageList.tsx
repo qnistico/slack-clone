@@ -116,7 +116,7 @@ export default function MessageList({
         return (
           <div
             key={message.id}
-            className="group relative flex gap-3 hover:bg-gray-50 dark:hover:bg-gray-800 p-2 rounded transition"
+            className="group relative flex items-start gap-3 hover:bg-gray-50 dark:hover:bg-gray-800 p-2 rounded transition"
             onMouseEnter={() => setHoveredMessageId(message.id)}
             onMouseLeave={() => {
               // Only clear hover if this message is not active (picker/menu open)
